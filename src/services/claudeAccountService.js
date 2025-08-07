@@ -278,6 +278,15 @@ class ClaudeAccountService {
           return refreshResult.accessToken;
         } catch (refreshError) {
           logger.warn(`⚠️ Token refresh failed for account ${accountId}: ${refreshError.message}`);
+          
+          // 检查是否为账户补号错误
+          const fallbackRelayService = require('./fallbackRelayService');
+          if (fallbackRelayService.isAccountReplenishmentError(refreshError.message)) {
+            logger.warn(`🔄 Account replenishment error detected for ${accountId}, account will be marked for fallback`);
+            // 可以在这里标记账户为需要使用备用中转的状态
+            throw new Error('正在补号中，请稍等片刻');
+          }
+          
           // 如果刷新失败，仍然尝试使用当前token（可能是手动添加的长期有效token）
           const currentToken = this._decryptSensitiveData(accountData.accessToken);
           if (currentToken) {

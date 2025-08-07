@@ -19,6 +19,9 @@ const config = require('../../config/config');
 
 const router = express.Router();
 
+// Import fallback relay service
+const fallbackRelayService = require('../services/fallbackRelayService');
+
 // 🔑 API Keys 管理
 
 // 调试：获取API Key费用详情
@@ -3556,6 +3559,98 @@ router.put('/oem-settings', authenticateAdmin, async (req, res) => {
   } catch (error) {
     logger.error('❌ Failed to update OEM settings:', error);
     res.status(500).json({ error: 'Failed to update OEM settings', message: error.message });
+  }
+});
+
+// 🔄 Fallback Relay 管理
+
+// 获取所有中转状态
+router.get('/fallback-relays', authenticateAdmin, async (req, res) => {
+  try {
+    const status = fallbackRelayService.getRelayStatus();
+    const configuredRelays = config.claude.fallbackRelays || [];
+    
+    // 组合配置信息和状态信息
+    const relays = configuredRelays.map(relay => ({
+      name: relay.name,
+      baseUrl: relay.baseUrl,
+      enabled: relay.enabled,
+      isFailed: status.failedRelays.includes(relay.name),
+      retryTime: status.retryTimes[relay.name] || null,
+      isCurrentRelay: status.currentRelay === relay.name
+    }));
+    
+    res.json({
+      success: true,
+      data: {
+        relays,
+        totalConfigured: configuredRelays.length,
+        totalAvailable: status.availableRelays,
+        currentRelay: status.currentRelay
+      }
+    });
+  } catch (error) {
+    logger.error('❌ Failed to get fallback relays status:', error);
+    res.status(500).json({ error: 'Failed to get fallback relays status', message: error.message });
+  }
+});
+
+// 重置所有中转状态
+router.post('/fallback-relays/reset', authenticateAdmin, async (req, res) => {
+  try {
+    fallbackRelayService.resetAllRelays();
+    
+    res.json({
+      success: true,
+      message: 'All fallback relay states have been reset'
+    });
+  } catch (error) {
+    logger.error('❌ Failed to reset fallback relays:', error);
+    res.status(500).json({ error: 'Failed to reset fallback relays', message: error.message });
+  }
+});
+
+// 测试特定中转
+router.post('/fallback-relays/:relayName/test', authenticateAdmin, async (req, res) => {
+  try {
+    const { relayName } = req.params;
+    const configuredRelays = config.claude.fallbackRelays || [];
+    const relay = configuredRelays.find(r => r.name === relayName);
+    
+    if (!relay) {
+      return res.status(404).json({ error: 'Relay not found' });
+    }
+    
+    // 发送测试请求
+    const testBody = {
+      model: 'claude-3-5-haiku-20241022',
+      messages: [{ role: 'user', content: 'Hello, this is a test message.' }],
+      max_tokens: 10
+    };
+    
+    try {
+      const response = await fallbackRelayService.makeRelayRequest(testBody, relay, {});
+      
+      res.json({
+        success: true,
+        message: `Relay ${relayName} test successful`,
+        data: {
+          statusCode: response.statusCode,
+          relayName,
+          testTime: new Date().toISOString()
+        }
+      });
+    } catch (testError) {
+      res.status(500).json({
+        success: false,
+        error: `Relay ${relayName} test failed`,
+        message: testError.message,
+        relayName
+      });
+    }
+  } catch (error) {
+    logger.error('❌ Failed to test fallback relay:', error);
+    res.status(500).json({ error: 'Failed to test fallback relay', message: error.message });
   }
 });
 

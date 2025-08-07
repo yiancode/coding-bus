@@ -58,6 +58,7 @@ class ClaudeRelayService {
   // 🚀 转发请求到Claude API
   async relayRequest(requestBody, apiKeyData, clientRequest, clientResponse, clientHeaders, options = {}) {
     let upstreamRequest = null;
+    const fallbackRelayService = require('./fallbackRelayService');
     
     try {
       // 调试日志：查看API Key数据
@@ -99,7 +100,34 @@ class ClaudeRelayService {
       logger.info(`📤 Processing API request for key: ${apiKeyData.name || apiKeyData.id}, account: ${accountId} (${accountType})${sessionHash ? `, session: ${sessionHash}` : ''}`);
       
       // 获取有效的访问token
-      const accessToken = await claudeAccountService.getValidAccessToken(accountId);
+      let accessToken;
+      let shouldUseFallback = false;
+      
+      try {
+        accessToken = await claudeAccountService.getValidAccessToken(accountId);
+      } catch (tokenError) {
+        logger.warn(`⚠️ Failed to get access token for account ${accountId}: ${tokenError.message}`);
+        
+        // 检查是否为账户补号错误或其他需要切换的错误
+        if (fallbackRelayService.isAccountReplenishmentError(tokenError.message)) {
+          logger.info('🔄 Account replenishment error detected, attempting fallback to third-party relay');
+          shouldUseFallback = true;
+        } else {
+          throw tokenError; // 其他错误直接抛出
+        }
+      }
+      
+      // 如果需要使用备用中转
+      if (shouldUseFallback) {
+        const availableRelay = fallbackRelayService.getNextAvailableRelay();
+        if (availableRelay) {
+          logger.info(`🔄 Using fallback relay: ${availableRelay.name}`);
+          const processedBody = this._processRequestBody(requestBody, clientHeaders);
+          return await fallbackRelayService.makeRelayRequest(processedBody, availableRelay, clientHeaders);
+        } else {
+          throw new Error('Error getting Claude access token: 正在补号中，请稍等片刻。No fallback relays available.');
+        }
+      }
       
       // 处理请求体（传递 clientHeaders 以判断是否需要设置 Claude Code 系统提示词）
       const processedBody = this._processRequestBody(requestBody, clientHeaders);
@@ -142,14 +170,16 @@ class ClaudeRelayService {
         clientResponse.removeListener('close', handleClientDisconnect);
       }
       
-      // 检查响应是否为限流错误
+      // 检查响应是否为限流错误或其他需要切换到备用中转的错误
       if (response.statusCode !== 200 && response.statusCode !== 201) {
         let isRateLimited = false;
         let rateLimitResetTimestamp = null;
+        let shouldTryFallback = false;
         
         // 检查是否为429状态码
         if (response.statusCode === 429) {
           isRateLimited = true;
+          shouldTryFallback = true;
           
           // 提取限流重置时间戳
           if (response.headers && response.headers['anthropic-ratelimit-unified-reset']) {
@@ -160,14 +190,41 @@ class ClaudeRelayService {
           // 检查响应体中的错误信息
           try {
             const responseBody = typeof response.body === 'string' ? JSON.parse(response.body) : response.body;
-            if (responseBody && responseBody.error && responseBody.error.message && 
-                responseBody.error.message.toLowerCase().includes('exceed your account\'s rate limit')) {
-              isRateLimited = true;
+            if (responseBody && responseBody.error && responseBody.error.message) {
+              const errorMessage = responseBody.error.message;
+              if (errorMessage.toLowerCase().includes('exceed your account\'s rate limit')) {
+                isRateLimited = true;
+                shouldTryFallback = true;
+              } else if (fallbackRelayService.isFailoverError(response, responseBody)) {
+                shouldTryFallback = true;
+                logger.warn(`🔄 Failover error detected: ${errorMessage}`);
+              }
             }
           } catch (e) {
             // 如果解析失败，检查原始字符串
-            if (response.body && response.body.toLowerCase().includes('exceed your account\'s rate limit')) {
-              isRateLimited = true;
+            if (response.body) {
+              if (response.body.toLowerCase().includes('exceed your account\'s rate limit')) {
+                isRateLimited = true;
+                shouldTryFallback = true;
+              } else if (fallbackRelayService.isFailoverError(response, response.body)) {
+                shouldTryFallback = true;
+              }
+            }
+          }
+        }
+        
+        // 如果需要使用备用中转，尝试切换
+        if (shouldTryFallback) {
+          const availableRelay = fallbackRelayService.getNextAvailableRelay();
+          if (availableRelay) {
+            logger.info(`🔄 Switching to fallback relay due to error: ${availableRelay.name}`);
+            try {
+              const fallbackResponse = await fallbackRelayService.makeRelayRequest(processedBody, availableRelay, clientHeaders);
+              logger.info(`✅ Fallback relay ${availableRelay.name} succeeded`);
+              return fallbackResponse;
+            } catch (fallbackError) {
+              logger.warn(`⚠️ Fallback relay ${availableRelay.name} also failed: ${fallbackError.message}`);
+              // 继续使用原始响应
             }
           }
         }
@@ -597,6 +654,8 @@ class ClaudeRelayService {
 
   // 🌊 处理流式响应（带usage数据捕获）
   async relayStreamRequestWithUsageCapture(requestBody, apiKeyData, responseStream, clientHeaders, usageCallback, streamTransformer = null, options = {}) {
+    const fallbackRelayService = require('./fallbackRelayService');
+    
     try {
       // 调试日志：查看API Key数据（流式请求）
       logger.info('🔍 [Stream] API Key data received:', {
@@ -639,7 +698,47 @@ class ClaudeRelayService {
       logger.info(`📡 Processing streaming API request with usage capture for key: ${apiKeyData.name || apiKeyData.id}, account: ${accountId} (${accountType})${sessionHash ? `, session: ${sessionHash}` : ''}`);
       
       // 获取有效的访问token
-      const accessToken = await claudeAccountService.getValidAccessToken(accountId);
+      let accessToken;
+      let shouldUseFallback = false;
+      
+      try {
+        accessToken = await claudeAccountService.getValidAccessToken(accountId);
+      } catch (tokenError) {
+        logger.warn(`⚠️ Failed to get access token for streaming request, account ${accountId}: ${tokenError.message}`);
+        
+        // 检查是否为账户补号错误
+        if (fallbackRelayService.isAccountReplenishmentError(tokenError.message)) {
+          logger.info('🔄 Account replenishment error detected in stream, attempting fallback to third-party relay');
+          shouldUseFallback = true;
+        } else {
+          throw tokenError;
+        }
+      }
+      
+      // 如果需要使用备用中转（流式）
+      if (shouldUseFallback) {
+        const availableRelay = fallbackRelayService.getNextAvailableRelay();
+        if (availableRelay) {
+          logger.info(`🔄 Using fallback relay for stream: ${availableRelay.name}`);
+          const processedBody = this._processRequestBody(requestBody, clientHeaders);
+          return await fallbackRelayService.makeRelayStreamRequest(
+            processedBody, 
+            availableRelay, 
+            responseStream, 
+            clientHeaders, 
+            usageCallback
+          );
+        } else {
+          // 发送错误到流并结束
+          if (!responseStream.headersSent) {
+            responseStream.writeHead(500, { 'Content-Type': 'application/json' });
+          }
+          responseStream.end(JSON.stringify({
+            error: 'Error getting Claude access token: 正在补号中，请稍等片刻。No fallback relays available.'
+          }));
+          return;
+        }
+      }
       
       // 处理请求体（传递 clientHeaders 以判断是否需要设置 Claude Code 系统提示词）
       const processedBody = this._processRequestBody(requestBody, clientHeaders);
