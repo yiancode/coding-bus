@@ -49,9 +49,18 @@ class ClaudeConsoleRelayService {
       // 创建AbortController用于取消请求
       abortController = new AbortController();
 
+      // 设置超时取消请求
+      const timeoutId = setTimeout(() => {
+        logger.warn(`⏰ Request timeout after ${config.proxy.fastFailTimeout}ms, aborting...`);
+        if (!abortController.signal.aborted) {
+          abortController.abort('Request timeout after 12 seconds');
+        }
+      }, config.proxy.fastFailTimeout || 12000);
+
       // 设置客户端断开监听器
       const handleClientDisconnect = () => {
         logger.info('🔌 Client disconnected, aborting Claude Console Claude request');
+        clearTimeout(timeoutId); // 清理超时定时器
         if (abortController && !abortController.signal.aborted) {
           abortController.abort();
         }
@@ -91,7 +100,7 @@ class ClaudeConsoleRelayService {
           ...filteredHeaders
         },
         httpsAgent: proxyAgent,
-        timeout: config.proxy.timeout || 60000,
+        timeout: config.proxy.fastFailTimeout || 12000, // 使用快速失败超时
         signal: abortController.signal,
         validateStatus: () => true // 接受所有状态码
       };
@@ -117,9 +126,17 @@ class ClaudeConsoleRelayService {
         logger.debug('[DEBUG] No beta header to add');
       }
 
-      // 发送请求
+      // 发送请求并记录响应时间
+      const startTime = Date.now();
       logger.debug('📤 Sending request to Claude Console API with headers:', JSON.stringify(requestConfig.headers, null, 2));
       const response = await axios(requestConfig);
+      const responseTime = Date.now() - startTime;
+      
+      // 清理超时定时器（请求成功完成）
+      clearTimeout(timeoutId);
+      
+      // 记录响应时间到Redis用于优化账户选择
+      await this._updateAccountResponseTime(accountId, responseTime);
 
       // 移除监听器（请求成功完成）
       if (clientRequest) {
@@ -161,10 +178,34 @@ class ClaudeConsoleRelayService {
       };
 
     } catch (error) {
+      // 清理超时定时器
+      if (typeof timeoutId !== 'undefined') {
+        clearTimeout(timeoutId);
+      }
+      
       // 处理特定错误
       if (error.name === 'AbortError' || error.code === 'ECONNABORTED') {
-        logger.info('Request aborted due to client disconnect');
-        throw new Error('Client disconnected');
+        logger.info('Request aborted due to client disconnect or timeout');
+        // 区分超时和客户端断开
+        if (error.message && error.message.includes('timeout')) {
+          const timeoutError = new Error('Request timeout after 12 seconds');
+          timeoutError.isRetryable = true;
+          throw timeoutError;
+        } else {
+          // 客户端断开连接不应该重试
+          const disconnectError = new Error('Client disconnected');
+          disconnectError.isClientDisconnect = true;
+          throw disconnectError;
+        }
+      }
+
+      // 检查是否是超时错误
+      if (error.code === 'ECONNRESET' || error.message.includes('timeout')) {
+        logger.warn('❌ Request timeout or connection reset:', error.message);
+        // 超时错误应该可以重试
+        const timeoutError = new Error('Request timeout');
+        timeoutError.isRetryable = true;
+        throw timeoutError;
       }
 
       logger.error('❌ Claude Console Claude relay request failed:', error.message);
@@ -243,7 +284,7 @@ class ClaudeConsoleRelayService {
           ...filteredHeaders
         },
         httpsAgent: proxyAgent,
-        timeout: config.proxy.timeout || 60000,
+        timeout: config.proxy.fastFailTimeout || 12000, // 使用快速失败超时
         responseType: 'stream',
         validateStatus: () => true // 接受所有状态码
       };
@@ -264,10 +305,14 @@ class ClaudeConsoleRelayService {
         requestConfig.headers['anthropic-beta'] = requestOptions.betaHeader;
       }
 
-      // 发送请求
+      // 发送请求并记录响应时间
+      const startTime = Date.now();
       const request = axios(requestConfig);
 
       request.then(response => {
+        const responseTime = Date.now() - startTime;
+        // 记录响应时间到Redis用于优化账户选择
+        this._updateAccountResponseTime(accountId, responseTime);
         logger.debug(`🌊 Claude Console Claude stream response status: ${response.status}`);
 
         // 错误响应处理
@@ -518,6 +563,41 @@ class ClaudeConsoleRelayService {
       );
     } catch (error) {
       logger.warn(`⚠️ Failed to update last used time for Claude Console account ${accountId}:`, error.message);
+    }
+  }
+
+  // ⏱️ 更新账户响应时间
+  async _updateAccountResponseTime(accountId, responseTime) {
+    try {
+      const client = require('../models/redis').getClientSafe();
+      const avgKey = `claude_console_account_avg_response:${accountId}`;
+      
+      // 获取当前平均响应时间和请求计数
+      const currentAvg = await client.get(avgKey) || '0';
+      const countKey = `claude_console_account_count:${accountId}`;
+      const currentCount = parseInt(await client.get(countKey) || '0');
+      
+      // 计算新的平均响应时间（使用滑动平均，最多考虑最近100次请求）
+      const maxSamples = 100;
+      const effectiveCount = Math.min(currentCount, maxSamples - 1);
+      const newAvg = effectiveCount === 0 
+        ? responseTime 
+        : ((parseFloat(currentAvg) * effectiveCount) + responseTime) / (effectiveCount + 1);
+      
+      // 更新Redis中的数据
+      await client.set(avgKey, newAvg.toFixed(2));
+      await client.set(countKey, currentCount + 1);
+      
+      // 同时更新账户记录中的平均响应时间
+      await client.hset(
+        `claude_console_account:${accountId}`,
+        'avgResponseTime',
+        newAvg.toFixed(2)
+      );
+      
+      logger.debug(`📊 Updated response time for account ${accountId}: ${responseTime}ms (avg: ${newAvg.toFixed(2)}ms)`);
+    } catch (error) {
+      logger.warn(`⚠️ Failed to update response time for Claude Console account ${accountId}:`, error.message);
     }
   }
 

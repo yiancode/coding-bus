@@ -21,7 +21,7 @@ class UnifiedClaudeScheduler {
   }
 
   // 🎯 统一调度Claude账号（官方和Console）
-  async selectAccountForApiKey(apiKeyData, sessionHash = null, requestedModel = null) {
+  async selectAccountForApiKey(apiKeyData, sessionHash = null, requestedModel = null, excludeAccountIds = null) {
     try {
       // 如果API Key绑定了专属账户或分组，优先使用
       if (apiKeyData.claudeAccountId) {
@@ -77,20 +77,26 @@ class UnifiedClaudeScheduler {
       if (sessionHash) {
         const mappedAccount = await this._getSessionMapping(sessionHash);
         if (mappedAccount) {
-          // 验证映射的账户是否仍然可用
-          const isAvailable = await this._isAccountAvailable(mappedAccount.accountId, mappedAccount.accountType);
-          if (isAvailable) {
-            logger.info(`🎯 Using sticky session account: ${mappedAccount.accountId} (${mappedAccount.accountType}) for session ${sessionHash}`);
-            return mappedAccount;
-          } else {
-            logger.warn(`⚠️ Mapped account ${mappedAccount.accountId} is no longer available, selecting new account`);
+          // 检查映射的账户是否在排除列表中
+          if (excludeAccountIds && excludeAccountIds.has(mappedAccount.accountId)) {
+            logger.warn(`⚠️ Mapped account ${mappedAccount.accountId} is in failed list, will select new account`);
             await this._deleteSessionMapping(sessionHash);
+          } else {
+            // 验证映射的账户是否仍然可用
+            const isAvailable = await this._isAccountAvailable(mappedAccount.accountId, mappedAccount.accountType);
+            if (isAvailable) {
+              logger.info(`🎯 Using sticky session account: ${mappedAccount.accountId} (${mappedAccount.accountType}) for session ${sessionHash}`);
+              return mappedAccount;
+            } else {
+              logger.warn(`⚠️ Mapped account ${mappedAccount.accountId} is no longer available, selecting new account`);
+              await this._deleteSessionMapping(sessionHash);
+            }
           }
         }
       }
 
       // 获取所有可用账户（传递请求的模型进行过滤）
-      const availableAccounts = await this._getAllAvailableAccounts(apiKeyData, requestedModel);
+      const availableAccounts = await this._getAllAvailableAccounts(apiKeyData, requestedModel, excludeAccountIds);
       
       if (availableAccounts.length === 0) {
         // 提供更详细的错误信息
@@ -126,7 +132,7 @@ class UnifiedClaudeScheduler {
   }
 
   // 📋 获取所有可用账户（合并官方和Console）
-  async _getAllAvailableAccounts(apiKeyData, requestedModel = null) {
+  async _getAllAvailableAccounts(apiKeyData, requestedModel = null, excludeAccountIds = null) {
     const availableAccounts = [];
 
     // 如果API Key绑定了专属账户，优先返回
@@ -190,6 +196,12 @@ class UnifiedClaudeScheduler {
     // 获取官方Claude账户（共享池）
     const claudeAccounts = await redis.getAllClaudeAccounts();
     for (const account of claudeAccounts) {
+      // 排除失败的账户
+      if (excludeAccountIds && excludeAccountIds.has(account.id)) {
+        logger.info(`⚠️ Skipping failed Claude OAuth account: ${account.name} (${account.id})`);
+        continue;
+      }
+      
       if (account.isActive === 'true' && 
           account.status !== 'error' &&
           account.status !== 'blocked' &&
@@ -216,6 +228,12 @@ class UnifiedClaudeScheduler {
     
     for (const account of consoleAccounts) {
       logger.info(`🔍 Checking Claude Console account: ${account.name} - isActive: ${account.isActive}, status: ${account.status}, accountType: ${account.accountType}, schedulable: ${account.schedulable}`);
+      
+      // 排除失败的账户
+      if (excludeAccountIds && excludeAccountIds.has(account.id)) {
+        logger.info(`⚠️ Skipping failed Claude Console account: ${account.name} (${account.id})`);
+        continue;
+      }
       
       // 注意：getAllAccounts返回的isActive是布尔值
       if (account.isActive === true && 
@@ -299,7 +317,14 @@ class UnifiedClaudeScheduler {
         return a.priority - b.priority;
       }
       
-      // 优先级相同时，按最后使用时间排序（最久未使用的优先）
+      // 优先级相同时，按平均响应时间排序（响应更快的优先）
+      const aAvgTime = parseFloat(a.avgResponseTime || '999999');
+      const bAvgTime = parseFloat(b.avgResponseTime || '999999');
+      if (Math.abs(aAvgTime - bAvgTime) > 1000) { // 差异超过1秒才考虑响应时间
+        return aAvgTime - bAvgTime;
+      }
+      
+      // 响应时间相近时，按最后使用时间排序（最久未使用的优先）
       const aLastUsed = new Date(a.lastUsedAt || 0).getTime();
       const bLastUsed = new Date(b.lastUsedAt || 0).getTime();
       return aLastUsed - bLastUsed;
