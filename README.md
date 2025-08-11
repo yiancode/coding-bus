@@ -478,6 +478,13 @@ claude
 gemini  # 或其他 Gemini CLI 命令
 ```
 
+**Codex 设置环境变量：**
+```bash
+export OPENAI_BASE_URL="http://127.0.0.1:3000/openai" # 根据实际填写你服务器的ip地址或者域名
+export OPENAI_API_KEY="后台创建的API密钥"  # 使用后台创建的API密钥
+```
+
+
 ### 5. 第三方工具API接入
 
 本服务支持多种API端点格式，方便接入不同的第三方工具（如Cherry Studio等）：
