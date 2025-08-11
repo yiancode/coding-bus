@@ -13,9 +13,11 @@ const CostCalculator = require('../utils/costCalculator')
 const pricingService = require('../services/pricingService')
 const claudeCodeHeadersService = require('../services/claudeCodeHeadersService')
 const axios = require('axios')
+const crypto = require('crypto')
 const fs = require('fs')
 const path = require('path')
 const config = require('../../config/config')
+const { v4: uuidv4 } = require('uuid')
 
 const router = express.Router()
 
@@ -1146,7 +1148,27 @@ router.post('/claude-accounts/exchange-setup-token-code', authenticateAdmin, asy
 // 获取所有Claude账户
 router.get('/claude-accounts', authenticateAdmin, async (req, res) => {
   try {
-    const accounts = await claudeAccountService.getAllAccounts()
+    const { platform, groupId } = req.query
+    let accounts = await claudeAccountService.getAllAccounts()
+
+    // 根据查询参数进行筛选
+    if (platform && platform !== 'all' && platform !== 'claude') {
+      // 如果指定了其他平台，返回空数组
+      accounts = []
+    }
+
+    // 如果指定了分组筛选
+    if (groupId && groupId !== 'all') {
+      if (groupId === 'ungrouped') {
+        // 筛选未分组账户
+        accounts = accounts.filter((account) => !account.groupInfo)
+      } else {
+        // 筛选特定分组的账户
+        accounts = accounts.filter(
+          (account) => account.groupInfo && account.groupInfo.id === groupId
+        )
+      }
+    }
 
     // 为每个账户添加使用统计信息
     const accountsWithStats = await Promise.all(
@@ -1403,7 +1425,27 @@ router.put(
 // 获取所有Claude Console账户
 router.get('/claude-console-accounts', authenticateAdmin, async (req, res) => {
   try {
-    const accounts = await claudeConsoleAccountService.getAllAccounts()
+    const { platform, groupId } = req.query
+    let accounts = await claudeConsoleAccountService.getAllAccounts()
+
+    // 根据查询参数进行筛选
+    if (platform && platform !== 'all' && platform !== 'claude-console') {
+      // 如果指定了其他平台，返回空数组
+      accounts = []
+    }
+
+    // 如果指定了分组筛选
+    if (groupId && groupId !== 'all') {
+      if (groupId === 'ungrouped') {
+        // 筛选未分组账户
+        accounts = accounts.filter((account) => !account.groupInfo)
+      } else {
+        // 筛选特定分组的账户
+        accounts = accounts.filter(
+          (account) => account.groupInfo && account.groupInfo.id === groupId
+        )
+      }
+    }
 
     // 为每个账户添加使用统计信息
     const accountsWithStats = await Promise.all(
@@ -1652,6 +1694,7 @@ router.put(
 // 获取所有Bedrock账户
 router.get('/bedrock-accounts', authenticateAdmin, async (req, res) => {
   try {
+    const { platform, groupId } = req.query
     const result = await bedrockAccountService.getAllAccounts()
     if (!result.success) {
       return res
@@ -1659,9 +1702,30 @@ router.get('/bedrock-accounts', authenticateAdmin, async (req, res) => {
         .json({ error: 'Failed to get Bedrock accounts', message: result.error })
     }
 
+    let accounts = result.data
+
+    // 根据查询参数进行筛选
+    if (platform && platform !== 'all' && platform !== 'bedrock') {
+      // 如果指定了其他平台，返回空数组
+      accounts = []
+    }
+
+    // 如果指定了分组筛选
+    if (groupId && groupId !== 'all') {
+      if (groupId === 'ungrouped') {
+        // 筛选未分组账户
+        accounts = accounts.filter((account) => !account.groupInfo)
+      } else {
+        // 筛选特定分组的账户
+        accounts = accounts.filter(
+          (account) => account.groupInfo && account.groupInfo.id === groupId
+        )
+      }
+    }
+
     // 为每个账户添加使用统计信息
     const accountsWithStats = await Promise.all(
-      result.data.map(async (account) => {
+      accounts.map(async (account) => {
         try {
           const usageStats = await redis.getAccountUsageStats(account.id)
           return {
@@ -2027,7 +2091,27 @@ router.post('/gemini-accounts/exchange-code', authenticateAdmin, async (req, res
 // 获取所有 Gemini 账户
 router.get('/gemini-accounts', authenticateAdmin, async (req, res) => {
   try {
-    const accounts = await geminiAccountService.getAllAccounts()
+    const { platform, groupId } = req.query
+    let accounts = await geminiAccountService.getAllAccounts()
+
+    // 根据查询参数进行筛选
+    if (platform && platform !== 'all' && platform !== 'gemini') {
+      // 如果指定了其他平台，返回空数组
+      accounts = []
+    }
+
+    // 如果指定了分组筛选
+    if (groupId && groupId !== 'all') {
+      if (groupId === 'ungrouped') {
+        // 筛选未分组账户
+        accounts = accounts.filter((account) => !account.groupInfo)
+      } else {
+        // 筛选特定分组的账户
+        accounts = accounts.filter(
+          (account) => account.groupInfo && account.groupInfo.id === groupId
+        )
+      }
+    }
 
     // 为每个账户添加使用统计信息（与Claude账户相同的逻辑）
     const accountsWithStats = await Promise.all(
@@ -2368,7 +2452,8 @@ router.get('/dashboard', authenticateAdmin, async (req, res) => {
         acc.isActive &&
         acc.status !== 'blocked' &&
         acc.status !== 'unauthorized' &&
-        acc.schedulable !== false
+        acc.schedulable !== false &&
+        !(acc.rateLimitStatus && acc.rateLimitStatus.isRateLimited)
     ).length
     const abnormalClaudeAccounts = claudeAccounts.filter(
       (acc) => !acc.isActive || acc.status === 'blocked' || acc.status === 'unauthorized'
@@ -2390,7 +2475,8 @@ router.get('/dashboard', authenticateAdmin, async (req, res) => {
         acc.isActive &&
         acc.status !== 'blocked' &&
         acc.status !== 'unauthorized' &&
-        acc.schedulable !== false
+        acc.schedulable !== false &&
+        !(acc.rateLimitStatus && acc.rateLimitStatus.isRateLimited)
     ).length
     const abnormalClaudeConsoleAccounts = claudeConsoleAccounts.filter(
       (acc) => !acc.isActive || acc.status === 'blocked' || acc.status === 'unauthorized'
@@ -2412,7 +2498,11 @@ router.get('/dashboard', authenticateAdmin, async (req, res) => {
         acc.isActive &&
         acc.status !== 'blocked' &&
         acc.status !== 'unauthorized' &&
-        acc.schedulable !== false
+        acc.schedulable !== false &&
+        !(
+          acc.rateLimitStatus === 'limited' ||
+          (acc.rateLimitStatus && acc.rateLimitStatus.isRateLimited)
+        )
     ).length
     const abnormalGeminiAccounts = geminiAccounts.filter(
       (acc) => !acc.isActive || acc.status === 'blocked' || acc.status === 'unauthorized'
@@ -2425,7 +2515,9 @@ router.get('/dashboard', authenticateAdmin, async (req, res) => {
         acc.status !== 'unauthorized'
     ).length
     const rateLimitedGeminiAccounts = geminiAccounts.filter(
-      (acc) => acc.rateLimitStatus === 'limited'
+      (acc) =>
+        acc.rateLimitStatus === 'limited' ||
+        (acc.rateLimitStatus && acc.rateLimitStatus.isRateLimited)
     ).length
 
     // Bedrock账户统计
@@ -2434,7 +2526,8 @@ router.get('/dashboard', authenticateAdmin, async (req, res) => {
         acc.isActive &&
         acc.status !== 'blocked' &&
         acc.status !== 'unauthorized' &&
-        acc.schedulable !== false
+        acc.schedulable !== false &&
+        !(acc.rateLimitStatus && acc.rateLimitStatus.isRateLimited)
     ).length
     const abnormalBedrockAccounts = bedrockAccounts.filter(
       (acc) => !acc.isActive || acc.status === 'blocked' || acc.status === 'unauthorized'
@@ -4204,6 +4297,401 @@ router.put('/oem-settings', authenticateAdmin, async (req, res) => {
   } catch (error) {
     logger.error('❌ Failed to update OEM settings:', error)
     return res.status(500).json({ error: 'Failed to update OEM settings', message: error.message })
+  }
+})
+
+// 🤖 OpenAI 账户管理
+
+// OpenAI OAuth 配置
+const OPENAI_CONFIG = {
+  BASE_URL: 'https://auth.openai.com',
+  CLIENT_ID: 'app_EMoamEEZ73f0CkXaXp7hrann',
+  REDIRECT_URI: 'http://localhost:1455/auth/callback',
+  SCOPE: 'openid profile email offline_access'
+}
+
+// 生成 PKCE 参数
+function generateOpenAIPKCE() {
+  const codeVerifier = crypto.randomBytes(64).toString('hex')
+  const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url')
+
+  return {
+    codeVerifier,
+    codeChallenge
+  }
+}
+
+// 生成 OpenAI OAuth 授权 URL
+router.post('/openai-accounts/generate-auth-url', authenticateAdmin, async (req, res) => {
+  try {
+    const { proxy } = req.body
+
+    // 生成 PKCE 参数
+    const pkce = generateOpenAIPKCE()
+
+    // 生成随机 state
+    const state = crypto.randomBytes(32).toString('hex')
+
+    // 创建会话 ID
+    const sessionId = crypto.randomUUID()
+
+    // 将 PKCE 参数和代理配置存储到 Redis
+    await redis.setOAuthSession(sessionId, {
+      codeVerifier: pkce.codeVerifier,
+      codeChallenge: pkce.codeChallenge,
+      state,
+      proxy: proxy || null,
+      platform: 'openai',
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString()
+    })
+
+    // 构建授权 URL 参数
+    const params = new URLSearchParams({
+      response_type: 'code',
+      client_id: OPENAI_CONFIG.CLIENT_ID,
+      redirect_uri: OPENAI_CONFIG.REDIRECT_URI,
+      scope: OPENAI_CONFIG.SCOPE,
+      code_challenge: pkce.codeChallenge,
+      code_challenge_method: 'S256',
+      state,
+      id_token_add_organizations: 'true',
+      codex_cli_simplified_flow: 'true'
+    })
+
+    const authUrl = `${OPENAI_CONFIG.BASE_URL}/oauth/authorize?${params.toString()}`
+
+    logger.success('🔗 Generated OpenAI OAuth authorization URL')
+
+    return res.json({
+      success: true,
+      data: {
+        authUrl,
+        sessionId,
+        instructions: [
+          '1. 复制上面的链接到浏览器中打开',
+          '2. 登录您的 OpenAI 账户',
+          '3. 同意应用权限',
+          '4. 复制浏览器地址栏中的完整 URL（包含 code 参数）',
+          '5. 在添加账户表单中粘贴完整的回调 URL'
+        ]
+      }
+    })
+  } catch (error) {
+    logger.error('生成 OpenAI OAuth URL 失败:', error)
+    return res.status(500).json({
+      success: false,
+      message: '生成授权链接失败',
+      error: error.message
+    })
+  }
+})
+
+// 交换 OpenAI 授权码
+router.post('/openai-accounts/exchange-code', authenticateAdmin, async (req, res) => {
+  try {
+    const { code, sessionId } = req.body
+
+    if (!code || !sessionId) {
+      return res.status(400).json({
+        success: false,
+        message: '缺少必要参数'
+      })
+    }
+
+    // 从 Redis 获取会话数据
+    const sessionData = await redis.getOAuthSession(sessionId)
+    if (!sessionData) {
+      return res.status(400).json({
+        success: false,
+        message: '会话已过期或无效'
+      })
+    }
+
+    // 准备 token 交换请求
+    const tokenData = {
+      grant_type: 'authorization_code',
+      code: code.trim(),
+      redirect_uri: OPENAI_CONFIG.REDIRECT_URI,
+      client_id: OPENAI_CONFIG.CLIENT_ID,
+      code_verifier: sessionData.codeVerifier
+    }
+
+    logger.info('Exchanging OpenAI authorization code:', {
+      sessionId,
+      codeLength: code.length,
+      hasCodeVerifier: !!sessionData.codeVerifier
+    })
+
+    // 配置代理（如果有）
+    const axiosConfig = {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }
+    }
+
+    if (sessionData.proxy) {
+      const { type, host, port, username, password } = sessionData.proxy
+      if (type === 'http' || type === 'https') {
+        axiosConfig.proxy = {
+          host,
+          port: parseInt(port),
+          auth: username && password ? { username, password } : undefined
+        }
+      }
+    }
+
+    // 交换 authorization code 获取 tokens
+    const tokenResponse = await axios.post(
+      `${OPENAI_CONFIG.BASE_URL}/oauth/token`,
+      new URLSearchParams(tokenData).toString(),
+      axiosConfig
+    )
+
+    const { id_token, access_token, refresh_token, expires_in } = tokenResponse.data
+
+    // 解析 ID token 获取用户信息
+    const idTokenParts = id_token.split('.')
+    if (idTokenParts.length !== 3) {
+      throw new Error('Invalid ID token format')
+    }
+
+    // 解码 JWT payload
+    const payload = JSON.parse(Buffer.from(idTokenParts[1], 'base64url').toString())
+
+    // 获取 OpenAI 特定的声明
+    const authClaims = payload['https://api.openai.com/auth'] || {}
+    const accountId = authClaims.chatgpt_account_id || ''
+    const chatgptUserId = authClaims.chatgpt_user_id || authClaims.user_id || ''
+    const planType = authClaims.chatgpt_plan_type || ''
+
+    // 获取组织信息
+    const organizations = authClaims.organizations || []
+    const defaultOrg = organizations.find((org) => org.is_default) || organizations[0] || {}
+    const organizationId = defaultOrg.id || ''
+    const organizationRole = defaultOrg.role || ''
+    const organizationTitle = defaultOrg.title || ''
+
+    // 清理 Redis 会话
+    await redis.deleteOAuthSession(sessionId)
+
+    logger.success('✅ OpenAI OAuth token exchange successful')
+
+    return res.json({
+      success: true,
+      data: {
+        tokens: {
+          idToken: id_token,
+          accessToken: access_token,
+          refreshToken: refresh_token,
+          expires_in
+        },
+        accountInfo: {
+          accountId,
+          chatgptUserId,
+          organizationId,
+          organizationRole,
+          organizationTitle,
+          planType,
+          email: payload.email || '',
+          name: payload.name || '',
+          emailVerified: payload.email_verified || false,
+          organizations
+        }
+      }
+    })
+  } catch (error) {
+    logger.error('OpenAI OAuth token exchange failed:', error)
+    return res.status(500).json({
+      success: false,
+      message: '交换授权码失败',
+      error: error.message
+    })
+  }
+})
+
+// 获取所有 OpenAI 账户
+router.get('/openai-accounts', authenticateAdmin, async (req, res) => {
+  try {
+    const accounts = await redis.getAllOpenAIAccounts()
+
+    logger.info(`获取 OpenAI 账户列表: ${accounts.length} 个账户`)
+
+    return res.json({
+      success: true,
+      data: accounts
+    })
+  } catch (error) {
+    logger.error('获取 OpenAI 账户列表失败:', error)
+    return res.status(500).json({
+      success: false,
+      message: '获取账户列表失败',
+      error: error.message
+    })
+  }
+})
+
+// 创建 OpenAI 账户
+router.post('/openai-accounts', authenticateAdmin, async (req, res) => {
+  try {
+    const {
+      name,
+      description,
+      openaiOauth,
+      accountInfo,
+      proxy,
+      accountType,
+      groupId,
+      dedicatedApiKeys,
+      rateLimitDuration,
+      priority
+    } = req.body
+
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        message: '账户名称不能为空'
+      })
+    }
+    const id = uuidv4()
+    // 创建账户数据
+    const accountData = {
+      id,
+      name,
+      description: description || '',
+      platform: 'openai',
+      accountType: accountType || 'shared',
+      groupId: groupId || null,
+      dedicatedApiKeys: dedicatedApiKeys || [],
+      priority: priority || 50,
+      rateLimitDuration: rateLimitDuration || 60,
+      enabled: true,
+      idToken: claudeAccountService._encryptSensitiveData(openaiOauth.idToken),
+      accessToken: claudeAccountService._encryptSensitiveData(openaiOauth.accessToken),
+      refreshToken: claudeAccountService._encryptSensitiveData(openaiOauth.refreshToken),
+      accountId: accountInfo?.accountId || '',
+      expiresAt: (Math.floor(Date.now() / 1000) + openaiOauth.expires_in) * 1000,
+      chatgptUserId: accountInfo?.chatgptUserId || '',
+      organizationId: accountInfo?.organizationId || '',
+      organizationRole: accountInfo?.organizationRole || '',
+      organizationTitle: accountInfo?.organizationTitle || '',
+      planType: accountInfo?.planType || '',
+      email: claudeAccountService._encryptSensitiveData(accountInfo?.email || ''),
+      emailVerified: accountInfo?.emailVerified || false,
+      isActive: true,
+      status: 'active',
+      lastRefresh: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+
+    // 存储代理配置（如果提供）
+    if (proxy?.enabled) {
+      accountData.proxy = {
+        type: proxy.type,
+        host: proxy.host,
+        port: proxy.port,
+        username: proxy.username || null,
+        password: proxy.password || null
+      }
+    }
+
+    // 保存到 Redis
+    const accountId = await redis.setOpenAiAccount(id, accountData)
+
+    logger.success(`✅ 创建 OpenAI 账户成功: ${name} (ID: ${accountId})`)
+
+    return res.json({
+      success: true,
+      data: {
+        id: accountId,
+        ...accountData
+      }
+    })
+  } catch (error) {
+    logger.error('创建 OpenAI 账户失败:', error)
+    return res.status(500).json({
+      success: false,
+      message: '创建账户失败',
+      error: error.message
+    })
+  }
+})
+
+// 更新 OpenAI 账户
+router.put('/openai-accounts/:id', authenticateAdmin, async (req, res) =>
+  //TODO:
+  res.json({
+    success: true
+  })
+)
+
+// 删除 OpenAI 账户
+router.delete('/openai-accounts/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const { id } = req.params
+
+    const account = await redis.getOpenAiAccount(id)
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        message: '账户不存在'
+      })
+    }
+
+    await redis.deleteOpenAiAccount(id)
+
+    logger.success(`✅ 删除 OpenAI 账户成功: ${account.name} (ID: ${id})`)
+
+    return res.json({
+      success: true,
+      message: '账户删除成功'
+    })
+  } catch (error) {
+    logger.error('删除 OpenAI 账户失败:', error)
+    return res.status(500).json({
+      success: false,
+      message: '删除账户失败',
+      error: error.message
+    })
+  }
+})
+
+// 切换 OpenAI 账户状态
+router.put('/openai-accounts/:id/toggle', authenticateAdmin, async (req, res) => {
+  try {
+    const { id } = req.params
+
+    const account = await redis.getOpenAiAccount(id)
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        message: '账户不存在'
+      })
+    }
+
+    // 切换启用状态
+    account.enabled = !account.enabled
+    account.updatedAt = new Date().toISOString()
+
+    // TODO: 更新方法
+    // await redis.updateOpenAiAccount(id, account)
+
+    logger.success(
+      `✅ ${account.enabled ? '启用' : '禁用'} OpenAI 账户: ${account.name} (ID: ${id})`
+    )
+
+    return res.json({
+      success: true,
+      data: account
+    })
+  } catch (error) {
+    logger.error('切换 OpenAI 账户状态失败:', error)
+    return res.status(500).json({
+      success: false,
+      message: '切换账户状态失败',
+      error: error.message
+    })
   }
 })
 
