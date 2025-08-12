@@ -2308,16 +2308,21 @@ router.put(
         return res.status(404).json({ error: 'Account not found' })
       }
 
-      // 将字符串 'true'/'false' 转换为布尔值，然后取反
-      const currentSchedulable = account.schedulable === 'true'
-      const newSchedulable = !currentSchedulable
+      // 现在 account.schedulable 已经是布尔值了，直接取反即可
+      const newSchedulable = !account.schedulable
 
       await geminiAccountService.updateAccount(accountId, { schedulable: String(newSchedulable) })
 
+      // 验证更新是否成功，重新获取账户信息
+      const updatedAccount = await geminiAccountService.getAccount(accountId)
+      const actualSchedulable = updatedAccount ? updatedAccount.schedulable : newSchedulable
+
       logger.success(
-        `🔄 Admin toggled Gemini account schedulable status: ${accountId} -> ${newSchedulable ? 'schedulable' : 'not schedulable'}`
+        `🔄 Admin toggled Gemini account schedulable status: ${accountId} -> ${actualSchedulable ? 'schedulable' : 'not schedulable'}`
       )
-      return res.json({ success: true, schedulable: newSchedulable })
+
+      // 返回实际的数据库值，确保前端状态与后端一致
+      return res.json({ success: true, schedulable: actualSchedulable })
     } catch (error) {
       logger.error('❌ Failed to toggle Gemini account schedulable status:', error)
       return res
@@ -4577,13 +4582,60 @@ router.post('/openai-accounts/exchange-code', authenticateAdmin, async (req, res
 // 获取所有 OpenAI 账户
 router.get('/openai-accounts', authenticateAdmin, async (req, res) => {
   try {
-    const accounts = await openaiAccountService.getAllAccounts()
+    const { platform, groupId } = req.query
+    let accounts = await openaiAccountService.getAllAccounts()
 
-    logger.info(`获取 OpenAI 账户列表: ${accounts.length} 个账户`)
+    // 根据查询参数进行筛选
+    if (platform && platform !== 'all' && platform !== 'openai') {
+      // 如果指定了其他平台，返回空数组
+      accounts = []
+    }
+
+    // 如果指定了分组筛选
+    if (groupId && groupId !== 'all') {
+      if (groupId === 'ungrouped') {
+        // 筛选未分组账户
+        accounts = accounts.filter((account) => !account.groupInfo)
+      } else {
+        // 筛选特定分组的账户
+        accounts = accounts.filter(
+          (account) => account.groupInfo && account.groupInfo.id === groupId
+        )
+      }
+    }
+
+    // 为每个账户添加使用统计信息
+    const accountsWithStats = await Promise.all(
+      accounts.map(async (account) => {
+        try {
+          const usageStats = await redis.getAccountUsageStats(account.id)
+          return {
+            ...account,
+            usage: {
+              daily: usageStats.daily,
+              total: usageStats.total,
+              monthly: usageStats.monthly
+            }
+          }
+        } catch (error) {
+          logger.debug(`Failed to get usage stats for OpenAI account ${account.id}:`, error)
+          return {
+            ...account,
+            usage: {
+              daily: { requests: 0, tokens: 0, allTokens: 0 },
+              total: { requests: 0, tokens: 0, allTokens: 0 },
+              monthly: { requests: 0, tokens: 0, allTokens: 0 }
+            }
+          }
+        }
+      })
+    )
+
+    logger.info(`获取 OpenAI 账户列表: ${accountsWithStats.length} 个账户`)
 
     return res.json({
       success: true,
-      data: accounts
+      data: accountsWithStats
     })
   } catch (error) {
     logger.error('获取 OpenAI 账户列表失败:', error)
