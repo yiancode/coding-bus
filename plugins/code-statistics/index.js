@@ -59,13 +59,25 @@ module.exports = {
         }
 
         const editStats = statistics.extractEditStatistics(response)
-        if (editStats.totalEditedLines > 0) {
+        
+        // 只要有工具调用就记录统计，不仅仅是编辑工具
+        const hasToolUsage = editStats.toolUsage && Object.keys(editStats.toolUsage).length > 0
+        const hasEditContent = editStats.totalEditedLines > 0
+        
+        if (hasToolUsage || hasEditContent) {
           await redisExtension.recordEditStatistics(keyId, editStats, model)
-          logger.info(
-            `📝 Code stats recorded: ${editStats.totalEditedLines} lines, ${editStats.editOperations} operations`
-          )
+          
+          if (hasEditContent) {
+            logger.info(
+              `📝 Code stats recorded: ${editStats.totalEditedLines} lines, ${editStats.editOperations} operations, ${Object.keys(editStats.toolUsage).length} tools`
+            )
+          } else if (hasToolUsage) {
+            logger.info(
+              `🔧 Tool usage only recorded: ${Object.keys(editStats.toolUsage).length} tools (${Object.keys(editStats.toolUsage).join(', ')}) - no edit content`
+            )
+          }
         } else {
-          logger.info('📊 [Code Stats] No editable content found in response')
+          logger.info('📊 [Code Stats] No tools or editable content found in response')
         }
       } catch (error) {
         logger.error('❌ Code statistics error:', error)

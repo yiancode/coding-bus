@@ -23,24 +23,25 @@
           <nav class="-mb-px flex space-x-8">
             <button
               class="whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium"
-              :class="activeTab === 'overview' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
+              :class="
+                activeTab === 'overview'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+              "
               @click="activeTab = 'overview'"
             >
               📈 全局统计概览
             </button>
             <button
               class="whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium"
-              :class="activeTab === 'tools' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
+              :class="
+                activeTab === 'tools'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+              "
               @click="activeTab = 'tools'"
             >
               🔧 工具调用统计
-            </button>
-            <button
-              class="whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium"
-              :class="activeTab === 'users' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'"
-              @click="activeTab = 'users'"
-            >
-              👥 用户统计明细
             </button>
           </nav>
         </div>
@@ -48,32 +49,109 @@
 
       <!-- 全局统计概览模块 -->
       <div v-if="activeTab === 'overview'">
+        <!-- 时间段选择器 -->
+        <div class="mb-6 flex justify-end">
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-medium text-gray-700">统计时间段：</span>
+            <div class="flex rounded-lg border border-gray-200 bg-white">
+              <button
+                v-for="option in timePeriodOptions"
+                :key="option.value"
+                @click="changeOverviewTimePeriod(option.value)"
+                :class="[
+                  'px-3 py-1.5 text-sm font-medium transition-all duration-200 first:rounded-l-lg last:rounded-r-lg',
+                  overviewTimePeriod === option.value
+                    ? 'bg-blue-500 text-white shadow-sm'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                ]"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- 统计卡片 -->
         <div class="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            color="bg-blue-500"
-            icon="📝"
-            title="今日编辑行数"
-            :value="systemStats?.todayLines || 0"
-          />
-          <StatCard
-            color="bg-green-500"
-            icon="⚡"
-            title="编辑操作次数"
-            :value="systemStats?.todayOperations || 0"
-          />
-          <StatCard
-            color="bg-purple-500"
-            icon="📄"
-            title="创建文件数"
-            :value="systemStats?.todayNewFiles || 0"
-          />
-          <StatCard
-            color="bg-orange-500"
-            icon="✏️"
-            title="修改文件数"
-            :value="systemStats?.todayModifiedFiles || 0"
-          />
+          <!-- 编辑行数卡片 -->
+          <div class="rounded-lg bg-white p-6 shadow-lg">
+            <div class="flex items-center justify-between">
+              <div class="mr-8 flex-1">
+                <p class="mb-1 text-xs font-semibold text-gray-600 sm:text-sm">
+                  {{ getOverviewCardTitle('编辑行数') }}
+                </p>
+                <div class="mb-2 flex flex-wrap items-baseline gap-2">
+                  <p class="text-xl font-bold text-blue-600 sm:text-2xl md:text-3xl">
+                    {{ formatNumber(systemStats?.periodLines || 0) }}
+                  </p>
+                </div>
+                <div class="text-xs text-gray-500"></div>
+              </div>
+              <div class="stat-icon flex-shrink-0 bg-gradient-to-br from-blue-500 to-blue-600">
+                <i class="fas fa-edit" />
+              </div>
+            </div>
+          </div>
+          <!-- 创建文件数卡片 -->
+          <div class="rounded-lg bg-white p-6 shadow-lg">
+            <div class="flex items-center justify-between">
+              <div class="mr-8 flex-1">
+                <p class="mb-1 text-xs font-semibold text-gray-600 sm:text-sm">
+                  {{ getOverviewCardTitle('创建文件数') }}
+                </p>
+                <div class="mb-2 flex flex-wrap items-baseline gap-2">
+                  <p class="text-xl font-bold text-purple-600 sm:text-2xl md:text-3xl">
+                    {{ formatNumber(systemStats?.periodNewFiles || 0) }}
+                  </p>
+                </div>
+                <div class="text-xs text-gray-500"></div>
+              </div>
+              <div class="stat-icon flex-shrink-0 bg-gradient-to-br from-purple-500 to-purple-600">
+                <i class="fas fa-file-plus" />
+              </div>
+            </div>
+          </div>
+          <!-- 修改文件数卡片 -->
+          <div class="rounded-lg bg-white p-6 shadow-lg">
+            <div class="flex items-center justify-between">
+              <div class="mr-8 flex-1">
+                <p class="mb-1 text-xs font-semibold text-gray-600 sm:text-sm">
+                  {{ getOverviewCardTitle('修改文件数') }}
+                </p>
+                <div class="mb-2 flex flex-wrap items-baseline gap-2">
+                  <p class="text-xl font-bold text-orange-600 sm:text-2xl md:text-3xl">
+                    {{ formatNumber(systemStats?.periodModifiedFiles || 0) }}
+                  </p>
+                </div>
+                <div class="text-xs text-gray-500"></div>
+              </div>
+              <div class="stat-icon flex-shrink-0 bg-gradient-to-br from-orange-500 to-orange-600">
+                <i class="fas fa-file-edit" />
+              </div>
+            </div>
+          </div>
+          <!-- Token详细显示卡片 -->
+          <div class="rounded-lg bg-white p-6 shadow-lg">
+            <div class="flex items-center justify-between">
+              <div class="mr-8 flex-1">
+                <p class="mb-1 text-xs font-semibold text-gray-600 sm:text-sm">
+                  {{ getOverviewCardTitle('Token') }}
+                </p>
+                <div class="mb-2 flex flex-wrap items-baseline gap-2">
+                  <p class="text-xl font-bold text-indigo-600 sm:text-2xl md:text-3xl">
+                    {{ formatTokens(dashboardOverview?.todayTokens || 0) }}
+                  </p>
+                  <span class="text-sm font-medium text-green-600"
+                    >/ {{ dashboardOverview?.totalCost || '$0.00' }}</span
+                  >
+                </div>
+                <div class="text-xs text-gray-500"></div>
+              </div>
+              <div class="stat-icon flex-shrink-0 bg-gradient-to-br from-indigo-500 to-indigo-600">
+                <i class="fas fa-coins" />
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- 图表区域 -->
@@ -97,66 +175,325 @@
 
         <!-- 排行榜 -->
         <div class="rounded-lg bg-white p-6 shadow-lg">
-          <h3 class="mb-4 text-lg font-semibold text-gray-900">🏆 排行榜 (Top 10)</h3>
+          <h3 class="mb-4 text-lg font-semibold text-gray-900">
+            🏆 {{ getOverviewCardTitle('') }}排行榜
+          </h3>
           <div class="overflow-hidden rounded-lg border border-gray-200">
             <table class="min-w-full divide-y divide-gray-200">
               <thead class="bg-gray-50">
                 <tr>
-                  <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">排名</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">用户名</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">编辑行数</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">操作次数</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">新建文件</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">修改文件</th>
+                  <th
+                    class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"
+                  >
+                    排名
+                  </th>
+                  <th
+                    class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"
+                  >
+                    用户名
+                  </th>
+                  <th
+                    class="cursor-pointer px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:bg-gray-100"
+                    @click="sortLeaderboard('totalEditedLines')"
+                  >
+                    <div class="flex items-center">
+                      编辑行数
+                      <span class="ml-1">
+                        <i
+                          v-if="leaderboardSortBy === 'totalEditedLines'"
+                          :class="
+                            leaderboardSortOrder === 'desc'
+                              ? 'fas fa-chevron-down'
+                              : 'fas fa-chevron-up'
+                          "
+                          class="text-xs text-blue-500"
+                        ></i>
+                        <i v-else class="fas fa-sort text-xs text-gray-400"></i>
+                      </span>
+                    </div>
+                  </th>
+                  <th
+                    class="cursor-pointer px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:bg-gray-100"
+                    @click="sortLeaderboard('totalNewFiles')"
+                  >
+                    <div class="flex items-center">
+                      新建文件
+                      <span class="ml-1">
+                        <i
+                          v-if="leaderboardSortBy === 'totalNewFiles'"
+                          :class="
+                            leaderboardSortOrder === 'desc'
+                              ? 'fas fa-chevron-down'
+                              : 'fas fa-chevron-up'
+                          "
+                          class="text-xs text-blue-500"
+                        ></i>
+                        <i v-else class="fas fa-sort text-xs text-gray-400"></i>
+                      </span>
+                    </div>
+                  </th>
+                  <th
+                    class="cursor-pointer px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:bg-gray-100"
+                    @click="sortLeaderboard('totalModifiedFiles')"
+                  >
+                    <div class="flex items-center">
+                      修改文件
+                      <span class="ml-1">
+                        <i
+                          v-if="leaderboardSortBy === 'totalModifiedFiles'"
+                          :class="
+                            leaderboardSortOrder === 'desc'
+                              ? 'fas fa-chevron-down'
+                              : 'fas fa-chevron-up'
+                          "
+                          class="text-xs text-blue-500"
+                        ></i>
+                        <i v-else class="fas fa-sort text-xs text-gray-400"></i>
+                      </span>
+                    </div>
+                  </th>
+                  <th
+                    class="cursor-pointer px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:bg-gray-100"
+                    @click="sortLeaderboard('totalRequests')"
+                  >
+                    <div class="flex items-center">
+                      请求数
+                      <span class="ml-1">
+                        <i
+                          v-if="leaderboardSortBy === 'totalRequests'"
+                          :class="
+                            leaderboardSortOrder === 'desc'
+                              ? 'fas fa-chevron-down'
+                              : 'fas fa-chevron-up'
+                          "
+                          class="text-xs text-blue-500"
+                        ></i>
+                        <i v-else class="fas fa-sort text-xs text-gray-400"></i>
+                      </span>
+                    </div>
+                  </th>
+                  <th
+                    class="cursor-pointer px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 hover:bg-gray-100"
+                    @click="sortLeaderboard('totalCost')"
+                  >
+                    <div class="flex items-center">
+                      费用
+                      <span class="ml-1">
+                        <i
+                          v-if="leaderboardSortBy === 'totalCost'"
+                          :class="
+                            leaderboardSortOrder === 'desc'
+                              ? 'fas fa-chevron-down'
+                              : 'fas fa-chevron-up'
+                          "
+                          class="text-xs text-blue-500"
+                        ></i>
+                        <i v-else class="fas fa-sort text-xs text-gray-400"></i>
+                      </span>
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-200 bg-white">
-                <tr v-for="(user, index) in leaderboard" :key="user.keyId">
+                <tr v-for="(user, index) in paginatedLeaderboard" :key="user.keyId">
                   <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
-                    <span class="inline-flex h-8 w-8 items-center justify-center rounded-full" :class="getRankClass(index)">
-                      {{ index + 1 }}
+                    <span
+                      class="inline-flex h-8 w-8 items-center justify-center rounded-full"
+                      :class="getRankClass(index + (leaderboardPage - 1) * leaderboardPageSize)"
+                    >
+                      {{ index + 1 + (leaderboardPage - 1) * leaderboardPageSize }}
                     </span>
                   </td>
-                  <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-900">{{ user.userName }}</td>
-                  <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-900">{{ user.totalEditedLines }}</td>
-                  <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-900">{{ user.totalEditOperations }}</td>
-                  <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-900">{{ user.totalNewFiles }}</td>
-                  <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-900">{{ user.totalModifiedFiles }}</td>
+                  <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
+                    {{ user.userName }}
+                  </td>
+                  <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
+                    {{ user.totalEditedLines }}
+                  </td>
+                  <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
+                    {{ user.totalNewFiles }}
+                  </td>
+                  <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
+                    {{ user.totalModifiedFiles }}
+                  </td>
+                  <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
+                    {{ formatNumber(user.totalRequests || 0) }}
+                  </td>
+                  <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
+                    ${{ (user.totalCost || 0).toFixed(4) }}
+                  </td>
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          <!-- 分页控件 -->
+          <div
+            v-if="leaderboardTotalPages > 1 || leaderboard.length > 10"
+            class="mt-4 flex items-center justify-between border-t border-gray-200 px-6 py-3"
+          >
+            <div class="flex flex-1 items-center justify-between">
+              <!-- 每页条数选择器 -->
+              <div class="flex items-center gap-2">
+                <span class="text-sm text-gray-700">每页显示:</span>
+                <select
+                  v-model="leaderboardPageSize"
+                  @change="changeLeaderboardPageSize"
+                  class="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option :value="10">10 条</option>
+                  <option :value="20">20 条</option>
+                  <option :value="100">100 条</option>
+                </select>
+              </div>
+
+              <!-- 分页信息和控件 -->
+              <div class="flex items-center gap-4">
+                <div class="hidden sm:block">
+                  <p class="text-sm text-gray-700">
+                    显示
+                    <span class="font-medium">{{
+                      (leaderboardPage - 1) * leaderboardPageSize + 1
+                    }}</span>
+                    到
+                    <span class="font-medium">{{
+                      Math.min(leaderboardPage * leaderboardPageSize, leaderboard.length)
+                    }}</span>
+                    项，共
+                    <span class="font-medium">{{ leaderboard.length }}</span>
+                    项
+                  </p>
+                </div>
+
+                <div v-if="leaderboardTotalPages > 1">
+                  <nav
+                    class="isolate inline-flex -space-x-px rounded-md shadow-sm"
+                    aria-label="分页"
+                  >
+                    <button
+                      @click="leaderboardPrevPage"
+                      :disabled="!leaderboardHasPrevPage"
+                      :class="[
+                        'relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0',
+                        leaderboardHasPrevPage ? 'hover:text-gray-500' : 'cursor-not-allowed'
+                      ]"
+                    >
+                      <span class="sr-only">上一页</span>
+                      <i class="fas fa-chevron-left h-5 w-5" aria-hidden="true"></i>
+                    </button>
+
+                    <!-- 页码按钮 -->
+                    <template v-for="page in getLeaderboardPageNumbers()" :key="page">
+                      <button
+                        v-if="page !== '...'"
+                        @click="goToLeaderboardPage(page)"
+                        :class="[
+                          'relative inline-flex items-center px-4 py-2 text-sm font-semibold ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0',
+                          page === leaderboardPage
+                            ? 'z-10 bg-blue-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
+                            : 'text-gray-900'
+                        ]"
+                      >
+                        {{ page }}
+                      </button>
+                      <span
+                        v-else
+                        class="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-700 ring-1 ring-inset ring-gray-300"
+                      >
+                        ...
+                      </span>
+                    </template>
+
+                    <button
+                      @click="leaderboardNextPage"
+                      :disabled="!leaderboardHasNextPage"
+                      :class="[
+                        'relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0',
+                        leaderboardHasNextPage ? 'hover:text-gray-500' : 'cursor-not-allowed'
+                      ]"
+                    >
+                      <span class="sr-only">下一页</span>
+                      <i class="fas fa-chevron-right h-5 w-5" aria-hidden="true"></i>
+                    </button>
+                  </nav>
+                </div>
+              </div>
+            </div>
+
+            <!-- 移动端分页 -->
+            <div class="flex flex-1 justify-between sm:hidden">
+              <button
+                @click="leaderboardPrevPage"
+                :disabled="!leaderboardHasPrevPage"
+                :class="[
+                  'relative inline-flex items-center rounded-md border px-4 py-2 text-sm font-medium',
+                  leaderboardHasPrevPage
+                    ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                    : 'cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400'
+                ]"
+              >
+                上一页
+              </button>
+              <button
+                @click="leaderboardNextPage"
+                :disabled="!leaderboardHasNextPage"
+                :class="[
+                  'relative ml-3 inline-flex items-center rounded-md border px-4 py-2 text-sm font-medium',
+                  leaderboardHasNextPage
+                    ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                    : 'cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400'
+                ]"
+              >
+                下一页
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- 工具调用统计模块 -->
       <div v-if="activeTab === 'tools'">
+        <!-- 时间段选择器 -->
+        <div class="mb-6 flex justify-end">
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-medium text-gray-700">统计时间段：</span>
+            <div class="flex rounded-lg border border-gray-200 bg-white">
+              <button
+                v-for="option in timePeriodOptions"
+                :key="option.value"
+                @click="changeToolsTimePeriod(option.value)"
+                :class="[
+                  'px-3 py-1.5 text-sm font-medium transition-all duration-200 first:rounded-l-lg last:rounded-r-lg',
+                  toolsTimePeriod === option.value
+                    ? 'bg-blue-500 text-white shadow-sm'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                ]"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- 工具调用统计卡片 -->
-        <div class="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <div class="mb-8 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           <StatCard
             color="bg-indigo-500"
             icon="🔧"
-            title="今日工具调用"
-            :value="toolStats?.todayToolCalls || 0"
+            :title="getToolsCardTitle('工具调用')"
+            :value="toolStats?.periodToolCalls || 0"
           />
           <StatCard
             color="bg-teal-500"
             icon="⚙️"
             title="工具种类"
-            :value="Object.keys(toolStats?.tools || {}).filter(tool => tool !== 'Unknown' && tool !== 'undefined').length"
+            :value="
+              Object.keys(toolStats?.tools || {}).filter(
+                (tool) => tool !== 'Unknown' && tool !== 'undefined'
+              ).length
+            "
           />
-          <StatCard
-            color="bg-pink-500"
-            icon="🏆"
-            title="最常用工具"
-            :value="getMostUsedTool()"
-          />
-          <StatCard
-            color="bg-cyan-500"
-            icon="📊"
-            title="日均调用"
-            :value="getAvgDailyCalls()"
-          />
+          <StatCard color="bg-pink-500" icon="🏆" title="最常用工具" :value="getMostUsedTool()" />
         </div>
 
         <!-- 工具调用图表 -->
@@ -180,21 +517,42 @@
 
         <!-- 工具排行榜 -->
         <div class="rounded-lg bg-white p-6 shadow-lg">
-          <h3 class="mb-4 text-lg font-semibold text-gray-900">🏆 工具使用排行榜 (Top 10)</h3>
+          <h3 class="mb-4 text-lg font-semibold text-gray-900">
+            🏆 {{ getToolsCardTitle('') }}工具使用排行榜 (Top 10)
+          </h3>
           <div class="overflow-hidden rounded-lg border border-gray-200">
             <table class="min-w-full divide-y divide-gray-200">
               <thead class="bg-gray-50">
                 <tr>
-                  <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">排名</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">工具名称</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">总调用数</th>
-                  <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">使用用户数</th>
+                  <th
+                    class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"
+                  >
+                    排名
+                  </th>
+                  <th
+                    class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"
+                  >
+                    工具名称
+                  </th>
+                  <th
+                    class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"
+                  >
+                    总调用数
+                  </th>
+                  <th
+                    class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500"
+                  >
+                    使用用户数
+                  </th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-200 bg-white">
                 <tr v-for="(tool, index) in toolRanking" :key="tool.tool">
                   <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">
-                    <span class="inline-flex h-8 w-8 items-center justify-center rounded-full" :class="getRankClass(index)">
+                    <span
+                      class="inline-flex h-8 w-8 items-center justify-center rounded-full"
+                      :class="getRankClass(index)"
+                    >
                       {{ index + 1 }}
                     </span>
                   </td>
@@ -203,299 +561,15 @@
                       {{ getToolIcon(tool.tool) }} {{ tool.tool }}
                     </span>
                   </td>
-                  <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-900">{{ tool.totalCount }}</td>
-                  <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-900">{{ tool.totalUsers }}</td>
+                  <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
+                    {{ tool.totalCount }}
+                  </td>
+                  <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
+                    {{ tool.totalUsers }}
+                  </td>
                 </tr>
               </tbody>
             </table>
-          </div>
-        </div>
-      </div>
-
-      <!-- 用户统计明细模块 -->
-      <div v-if="activeTab === 'users'">
-        <!-- 搜索和筛选区域 -->
-        <div class="mb-6 rounded-lg bg-white p-4 shadow-sm">
-          <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <!-- 搜索框 -->
-            <div class="group relative min-w-[200px] flex-1">
-              <div
-                class="absolute -inset-0.5 rounded-lg bg-gradient-to-r from-blue-500 to-indigo-500 opacity-0 blur transition duration-300 group-hover:opacity-20"
-              ></div>
-              <div class="relative flex items-center">
-                <input
-                  v-model="searchKeyword"
-                  class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 pl-9 text-sm text-gray-700 placeholder-gray-400 shadow-sm transition-all duration-200 hover:border-gray-300 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  placeholder="搜索用户名..."
-                  type="text"
-                />
-                <i class="fas fa-search absolute left-3 text-sm text-blue-500"></i>
-                <button
-                  v-if="searchKeyword"
-                  class="absolute right-2 flex h-5 w-5 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-                  @click="clearSearch"
-                >
-                  <i class="fas fa-times text-xs"></i>
-                </button>
-              </div>
-            </div>
-
-            <!-- 筛选选项 -->
-            <div class="flex items-center gap-3">
-              <label class="text-sm font-medium text-gray-700">天数范围：</label>
-              <select
-                v-model="userStatsDays"
-                class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                @change="fetchUserStats"
-              >
-                <option value="7">最近7天</option>
-                <option value="30">最近30天</option>
-                <option value="90">最近90天</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- 用户网格选择 -->
-          <div v-if="filteredUsers.length > 0" class="mt-4">
-            <div class="mb-3 flex items-center justify-between">
-              <span class="text-sm text-gray-600">
-                找到 {{ filteredUsers.length }} 个用户
-                <span v-if="selectedUserId" class="ml-2 text-blue-600">
-                  (已选择: {{ selectedUser?.userName }})
-                </span>
-              </span>
-              <button
-                v-if="selectedUserId"
-                class="text-sm text-gray-500 hover:text-gray-700"
-                @click="clearSelection"
-              >
-                清除选择
-              </button>
-            </div>
-            
-            <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-              <div
-                v-for="user in filteredUsers"
-                :key="user.keyId"
-                class="group cursor-pointer rounded-md border p-2 transition-all duration-200 hover:shadow-sm"
-                :class="selectedUserId === user.keyId 
-                  ? 'border-blue-500 bg-blue-50 shadow-sm' 
-                  : 'border-gray-200 bg-white hover:border-blue-300'"
-                @click="selectUser(user)"
-              >
-                <div class="flex items-center gap-2">
-                  <div 
-                    class="flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium"
-                    :class="selectedUserId === user.keyId 
-                      ? 'bg-blue-500 text-white' 
-                      : 'bg-gray-100 text-gray-600 group-hover:bg-blue-100 group-hover:text-blue-600'"
-                  >
-                    {{ user.userName.charAt(0).toUpperCase() }}
-                  </div>
-                  <div class="flex-1 min-w-0">
-                    <div 
-                      class="truncate text-sm font-medium"
-                      :class="selectedUserId === user.keyId ? 'text-blue-900' : 'text-gray-900'"
-                    >
-                      {{ user.userName }}
-                    </div>
-                    <div v-if="user.description" class="truncate text-xs text-gray-500">
-                      {{ user.description }}
-                    </div>
-                  </div>
-                  <div 
-                    v-if="selectedUserId === user.keyId"
-                    class="flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-white"
-                  >
-                    <i class="fas fa-check text-xs"></i>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 无搜索结果 -->
-          <div v-else-if="searchKeyword && users.length > 0" class="mt-4 text-center text-gray-500">
-            <i class="fas fa-search mb-2 text-2xl"></i>
-            <p>未找到匹配 "{{ searchKeyword }}" 的用户</p>
-          </div>
-        </div>
-
-        <!-- 用户统计详情 -->
-        <div v-if="selectedUserStats.user" class="space-y-6">
-          <!-- 用户概览卡片 -->
-          <div class="rounded-lg bg-white p-6 shadow-lg">
-            <h3 class="mb-4 text-lg font-semibold text-gray-900">👤 {{ selectedUserStats.user.userName }} 的统计概览</h3>
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
-              <div class="rounded-lg bg-blue-50 p-4 text-center">
-                <div class="text-2xl font-bold text-blue-600">{{ selectedUserStats.total.totalEditedLines || 0 }}</div>
-                <div class="text-sm text-gray-600">总编辑行数</div>
-              </div>
-              <div class="rounded-lg bg-green-50 p-4 text-center">
-                <div class="text-2xl font-bold text-green-600">{{ selectedUserStats.total.totalEditOperations || 0 }}</div>
-                <div class="text-sm text-gray-600">总操作次数</div>
-              </div>
-              <div class="rounded-lg bg-purple-50 p-4 text-center">
-                <div class="text-2xl font-bold text-purple-600">{{ selectedUserStats.total.totalNewFiles || 0 }}</div>
-                <div class="text-sm text-gray-600">新建文件数</div>
-              </div>
-              <div class="rounded-lg bg-orange-50 p-4 text-center">
-                <div class="text-2xl font-bold text-orange-600">{{ selectedUserStats.total.totalModifiedFiles || 0 }}</div>
-                <div class="text-sm text-gray-600">修改文件数</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 每日统计表格 -->
-          <div class="rounded-lg bg-white p-6 shadow-lg">
-            <h3 class="mb-4 text-lg font-semibold text-gray-900">📅 每日统计明细</h3>
-            <div class="overflow-hidden rounded-lg border border-gray-200">
-              <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                  <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">日期</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">编辑行数</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">操作次数</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">新建文件</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">修改文件</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">最后更新</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200 bg-white">
-                  <tr v-for="day in paginatedDailyStats" :key="day.date">
-                    <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900">{{ day.date }}</td>
-                    <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-900">{{ day.editedLines || 0 }}</td>
-                    <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-900">{{ day.editOperations || 0 }}</td>
-                    <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-900">{{ day.newFiles || 0 }}</td>
-                    <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-900">{{ day.modifiedFiles || 0 }}</td>
-                    <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-                      {{ day.lastUpdated ? new Date(day.lastUpdated).toLocaleString('zh-CN') : '-' }}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            
-            <!-- 分页控件 -->
-            <div v-if="totalPages > 1" class="mt-4 flex items-center justify-between border-t border-gray-200 px-6 py-3">
-              <div class="flex flex-1 justify-between sm:hidden">
-                <!-- 移动端分页 -->
-                <button 
-                  @click="prevPage"
-                  :disabled="!hasPrevPage"
-                  :class="[
-                    'relative inline-flex items-center rounded-md border px-4 py-2 text-sm font-medium',
-                    hasPrevPage 
-                      ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50' 
-                      : 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
-                  ]"
-                >
-                  上一页
-                </button>
-                <button 
-                  @click="nextPage"
-                  :disabled="!hasNextPage"
-                  :class="[
-                    'relative ml-3 inline-flex items-center rounded-md border px-4 py-2 text-sm font-medium',
-                    hasNextPage 
-                      ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50' 
-                      : 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
-                  ]"
-                >
-                  下一页
-                </button>
-              </div>
-              
-              <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-                <div>
-                  <p class="text-sm text-gray-700">
-                    显示
-                    <span class="font-medium">{{ (currentPage - 1) * pageSize + 1 }}</span>
-                    到
-                    <span class="font-medium">{{ Math.min(currentPage * pageSize, selectedUserStats.daily.length) }}</span>
-                    项，共
-                    <span class="font-medium">{{ selectedUserStats.daily.length }}</span>
-                    项
-                  </p>
-                </div>
-                <div>
-                  <nav class="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="分页">
-                    <button 
-                      @click="prevPage"
-                      :disabled="!hasPrevPage"
-                      :class="[
-                        'relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0',
-                        hasPrevPage ? 'hover:text-gray-500' : 'cursor-not-allowed'
-                      ]"
-                    >
-                      <span class="sr-only">上一页</span>
-                      <i class="fas fa-chevron-left h-5 w-5" aria-hidden="true"></i>
-                    </button>
-                    
-                    <!-- 页码按钮 -->
-                    <template v-for="page in Math.min(totalPages, 7)" :key="page">
-                      <button 
-                        v-if="page <= 5 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)"
-                        @click="goToPage(page)"
-                        :class="[
-                          'relative inline-flex items-center px-4 py-2 text-sm font-semibold ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0',
-                          page === currentPage 
-                            ? 'z-10 bg-blue-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
-                            : 'text-gray-900'
-                        ]"
-                      >
-                        {{ page }}
-                      </button>
-                    </template>
-                    
-                    <button 
-                      @click="nextPage"
-                      :disabled="!hasNextPage"
-                      :class="[
-                        'relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0',
-                        hasNextPage ? 'hover:text-gray-500' : 'cursor-not-allowed'
-                      ]"
-                    >
-                      <span class="sr-only">下一页</span>
-                      <i class="fas fa-chevron-right h-5 w-5" aria-hidden="true"></i>
-                    </button>
-                  </nav>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 语言分布 -->
-          <div class="rounded-lg bg-white p-6 shadow-lg">
-            <h3 class="mb-4 text-lg font-semibold text-gray-900">🌍 编程语言分布</h3>
-            <div
-              v-if="Object.keys(selectedUserStats.languages).length === 0"
-              class="text-center text-gray-500"
-            >
-              暂无语言统计数据
-            </div>
-            <div v-else class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-              <div
-                v-for="(stats, language) in selectedUserStats.languages"
-                :key="language"
-                class="rounded-lg border border-gray-200 p-4"
-              >
-                <div class="flex items-center justify-between">
-                  <span class="font-medium text-gray-900">{{ language }}</span>
-                  <span class="text-sm text-gray-500">{{ stats.operations }} 操作</span>
-                </div>
-                <div class="mt-2 text-2xl font-bold text-blue-600">{{ stats.lines }} 行</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 无选择用户时的提示 -->
-        <div v-else class="rounded-lg bg-white p-12 text-center shadow-lg">
-          <div class="text-gray-400">
-            <i class="fas fa-user-friends mb-4 text-6xl"></i>
-            <h3 class="mb-2 text-xl font-medium text-gray-900">选择用户查看统计</h3>
-            <p class="text-gray-600">请从上方下拉菜单中选择一个用户来查看其详细的代码统计信息</p>
           </div>
         </div>
       </div>
@@ -524,47 +598,62 @@ const toolStats = ref({})
 const toolRanking = ref([])
 const toolTrendData = ref([])
 
-// 用户相关数据
-const users = ref([])
-const selectedUserId = ref('')
-const selectedUserStats = ref({ user: null, daily: [], languages: {}, total: {} })
-const userStatsDays = ref('7')
-
-// 搜索和筛选
-const searchKeyword = ref('')
-
-// 分页相关
-const currentPage = ref(1)
-const pageSize = 7  // 每页7条记录
-
-// 计算属性
-const filteredUsers = computed(() => {
-  if (!searchKeyword.value) return users.value
-  
-  const keyword = searchKeyword.value.toLowerCase().trim()
-  return users.value.filter(user => 
-    user.userName.toLowerCase().includes(keyword) ||
-    (user.description && user.description.toLowerCase().includes(keyword))
-  )
+// 仪表盘数据（用于今日请求数和Token）
+const dashboardOverview = ref({
+  todayRequests: 0,
+  todayInputTokens: 0,
+  todayOutputTokens: 0,
+  todayCacheCreateTokens: 0,
+  todayCacheReadTokens: 0
 })
 
-// 分页相关计算属性
-const paginatedDailyStats = computed(() => {
-  const start = (currentPage.value - 1) * pageSize
-  const end = start + pageSize
-  return selectedUserStats.value.daily.slice(start, end)
+// 时间段相关
+const overviewTimePeriod = ref('today') // 默认今天
+const toolsTimePeriod = ref('today') // 默认今天
+
+// 时间段选项
+const timePeriodOptions = [
+  { value: 'today', label: '当天' },
+  { value: '7', label: '近7天' },
+  { value: 'month', label: '当月' },
+  { value: '30', label: '近30天' }
+]
+
+// 排行榜分页和排序相关
+const leaderboardPage = ref(1)
+const leaderboardPageSize = ref(10)
+const leaderboardSortBy = ref('totalEditedLines') // 默认按编辑行数排序
+const leaderboardSortOrder = ref('desc') // 降序
+
+// 排行榜相关计算属性
+const sortedLeaderboard = computed(() => {
+  const sorted = [...leaderboard.value].sort((a, b) => {
+    const field = leaderboardSortBy.value
+    const aValue = a[field] || 0
+    const bValue = b[field] || 0
+
+    // 数字类型排序
+    if (leaderboardSortOrder.value === 'desc') {
+      return bValue - aValue
+    } else {
+      return aValue - bValue
+    }
+  })
+  return sorted
 })
 
-const totalPages = computed(() => {
-  return Math.ceil(selectedUserStats.value.daily.length / pageSize)
+const paginatedLeaderboard = computed(() => {
+  const start = (leaderboardPage.value - 1) * leaderboardPageSize.value
+  const end = start + leaderboardPageSize.value
+  return sortedLeaderboard.value.slice(start, end)
 })
 
-const hasPrevPage = computed(() => currentPage.value > 1)
-const hasNextPage = computed(() => currentPage.value < totalPages.value)
-
-const selectedUser = computed(() => {
-  return users.value.find(user => user.keyId === selectedUserId.value)
+const leaderboardTotalPages = computed(() => {
+  return Math.ceil(leaderboard.value.length / leaderboardPageSize.value)
 })
+
+const leaderboardHasPrevPage = computed(() => leaderboardPage.value > 1)
+const leaderboardHasNextPage = computed(() => leaderboardPage.value < leaderboardTotalPages.value)
 
 // 图表引用
 const trendChart = ref(null)
@@ -581,7 +670,8 @@ let toolDistributionChartInstance = null
 // 获取系统统计数据
 async function fetchSystemStats() {
   try {
-    const response = await fetch('/admin/code-stats/system?days=30', {
+    const daysParam = getDaysParam(overviewTimePeriod.value)
+    const response = await fetch(`/admin/code-stats/system?${daysParam}`, {
       headers: {
         Authorization: `Bearer ${localStorage.getItem('authToken') || ''}`
       }
@@ -603,7 +693,8 @@ async function fetchSystemStats() {
 // 获取排行榜数据
 async function fetchLeaderboard() {
   try {
-    const response = await fetch('/admin/code-stats/leaderboard?limit=10', {
+    const daysParam = getDaysParam(overviewTimePeriod.value)
+    const response = await fetch(`/admin/code-stats/leaderboard?${daysParam}`, {
       headers: {
         Authorization: `Bearer ${localStorage.getItem('authToken') || ''}`
       }
@@ -624,7 +715,8 @@ async function fetchLeaderboard() {
 // 获取语言统计数据
 async function fetchLanguageStats() {
   try {
-    const response = await fetch('/admin/code-stats/languages?days=30', {
+    const daysParam = getDaysParam(overviewTimePeriod.value)
+    const response = await fetch(`/admin/code-stats/languages?${daysParam}`, {
       headers: {
         Authorization: `Bearer ${localStorage.getItem('authToken') || ''}`
       }
@@ -645,7 +737,8 @@ async function fetchLanguageStats() {
 // 获取工具统计数据
 async function fetchToolStats() {
   try {
-    const response = await fetch('/admin/code-stats/tools?days=30', {
+    const daysParam = getDaysParam(toolsTimePeriod.value)
+    const response = await fetch(`/admin/code-stats/tools?${daysParam}`, {
       headers: {
         Authorization: `Bearer ${localStorage.getItem('authToken') || ''}`
       }
@@ -655,7 +748,7 @@ async function fetchToolStats() {
     }
     const data = await response.json()
     if (data.success) {
-      toolStats.value = data.data || {}
+      toolStats.value = processToolStats(data.data)
       toolTrendData.value = data.data.daily || []
     }
   } catch (error) {
@@ -667,7 +760,8 @@ async function fetchToolStats() {
 // 获取工具排行榜
 async function fetchToolRanking() {
   try {
-    const response = await fetch('/admin/code-stats/tools/ranking?limit=10&days=30', {
+    const daysParam = getDaysParam(toolsTimePeriod.value)
+    const response = await fetch(`/admin/code-stats/tools/ranking?limit=10&${daysParam}`, {
       headers: {
         Authorization: `Bearer ${localStorage.getItem('authToken') || ''}`
       }
@@ -685,70 +779,256 @@ async function fetchToolRanking() {
   }
 }
 
-// 获取所有用户列表
-async function fetchUsers() {
+// 获取使用统计数据（请求数和Token）
+async function fetchUsageCosts() {
   try {
-    const response = await fetch('/admin/code-stats/users', {
+    let period = 'today' // 默认值
+
+    // 将时间段参数转换为API期望的格式
+    switch (overviewTimePeriod.value) {
+      case 'today':
+        period = 'today'
+        break
+      case '7':
+        period = '7days'
+        break
+      case 'month':
+        period = 'monthly'
+        break
+      case '30':
+        period = '30days'
+        break
+      default:
+        period = 'today'
+    }
+
+    const response = await fetch(`/admin/usage-costs?period=${period}`, {
       headers: {
         Authorization: `Bearer ${localStorage.getItem('authToken') || ''}`
       }
     })
     if (!response.ok) {
-      throw new Error('Failed to fetch users')
+      throw new Error('Failed to fetch usage costs')
     }
     const data = await response.json()
     if (data.success) {
-      users.value = data.data || []
+      // 计算总请求数和总Token数
+      let totalRequests = 0
+      let totalTokens = 0
+      let inputTokens = 0
+      let outputTokens = 0
+      let cacheCreateTokens = 0
+      let cacheReadTokens = 0
+
+      if (data.data.modelCosts && Array.isArray(data.data.modelCosts)) {
+        data.data.modelCosts.forEach((model) => {
+          // 对于请求数，如果是0但有token使用，就估算一个请求数
+          const modelRequests = model.requests || 0
+          const usage = model.usage || {}
+          const hasUsage = (usage.input_tokens || 0) > 0 || (usage.output_tokens || 0) > 0
+
+          // 如果没有请求数但有使用量，根据token数量估算请求数
+          if (modelRequests === 0 && hasUsage) {
+            // 根据平均token数估算请求数（假设每个请求平均1000-2000 token）
+            const totalModelTokens = (usage.input_tokens || 0) + (usage.output_tokens || 0)
+            totalRequests += Math.max(1, Math.ceil(totalModelTokens / 1500))
+          } else {
+            totalRequests += modelRequests
+          }
+
+          inputTokens += usage.input_tokens || 0
+          outputTokens += usage.output_tokens || 0
+          cacheCreateTokens += usage.cache_creation_input_tokens || 0
+          cacheReadTokens += usage.cache_read_input_tokens || 0
+        })
+      }
+
+      totalTokens = inputTokens + outputTokens + cacheCreateTokens + cacheReadTokens
+
+      dashboardOverview.value = {
+        todayRequests: totalRequests,
+        todayTokens: totalTokens,
+        inputTokens: inputTokens,
+        outputTokens: outputTokens,
+        cacheCreateTokens: cacheCreateTokens,
+        cacheReadTokens: cacheReadTokens,
+        totalCost: data.data.totalCosts?.formatted?.totalCost || '$0.00'
+      }
     }
   } catch (error) {
-    console.error('Error fetching users:', error)
-    showToast('获取用户列表失败', 'error')
+    console.error('Error fetching usage costs:', error)
+    showToast('获取使用统计失败', 'error')
   }
 }
 
-// 清除搜索
-function clearSearch() {
-  searchKeyword.value = ''
-}
-
-// 清除选择
-function clearSelection() {
-  selectedUserId.value = ''
-  selectedUserStats.value = { user: null, daily: [], languages: {}, total: {} }
-  currentPage.value = 1  // 重置分页
-}
-
-// 获取指定用户的统计数据
-async function fetchUserStats() {
-  if (!selectedUserId.value) {
-    selectedUserStats.value = { user: null, daily: [], languages: {}, total: {} }
-    return
+// 获取时间段参数
+function getDaysParam(period) {
+  switch (period) {
+    case 'today':
+      return 'days=1'
+    case '7':
+      return 'days=7'
+    case 'month':
+      return 'month=current'
+    case '30':
+      return 'days=30'
+    case 'all':
+      return 'all=true'
+    default:
+      return 'days=7'
   }
+}
+
+// 时间段切换 - 全局统计概览
+async function changeOverviewTimePeriod(period) {
+  overviewTimePeriod.value = period
+  showToast('正在切换时间段...', 'info')
 
   try {
-    const response = await fetch(
-      `/admin/code-stats/users/${selectedUserId.value}?days=${userStatsDays.value}`,
-      {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('authToken') || ''}`
-        }
-      }
-    )
-    if (!response.ok) {
-      throw new Error('Failed to fetch user stats')
-    }
-    const data = await response.json()
-    if (data.success) {
-      selectedUserStats.value = data.data
-    }
+    await Promise.all([
+      fetchSystemStats(),
+      fetchLanguageStats(),
+      fetchLeaderboard(), // 添加排行榜数据刷新
+      fetchUsageCosts() // 添加使用统计数据刷新，实现时间段联动
+    ])
+
+    await nextTick()
+    createTrendChart()
+    createLanguageChart()
+
+    showToast('时间段切换成功！', 'success')
   } catch (error) {
-    console.error('Error fetching user stats:', error)
-    showToast('获取用户统计失败', 'error')
+    console.error('Error changing overview time period:', error)
+    showToast('时间段切换失败', 'error')
   }
+}
+
+// 时间段切换 - 工具调用统计
+async function changeToolsTimePeriod(period) {
+  toolsTimePeriod.value = period
+  showToast('正在切换时间段...', 'info')
+
+  try {
+    await Promise.all([fetchToolStats(), fetchToolRanking()])
+
+    await nextTick()
+    createToolTrendChart()
+    createToolDistributionChart()
+
+    showToast('时间段切换成功！', 'success')
+  } catch (error) {
+    console.error('Error changing tools time period:', error)
+    showToast('时间段切换失败', 'error')
+  }
+}
+
+// 获取卡片标题 - 全局统计概览
+function getOverviewCardTitle(baseTitle) {
+  const periodLabels = {
+    today: '当天',
+    7: '近7天',
+    month: '当月',
+    30: '近30天'
+  }
+  return `${periodLabels[overviewTimePeriod.value] || '当天'}${baseTitle}`
+}
+
+// 获取卡片标题 - 工具调用统计
+function getToolsCardTitle(baseTitle) {
+  const periodLabels = {
+    today: '当天',
+    7: '近7天',
+    month: '当月',
+    30: '近30天'
+  }
+  return `${periodLabels[toolsTimePeriod.value] || '当天'}${baseTitle}`
 }
 
 // 处理系统统计数据
 function processSystemStats(data) {
+  // 根据时间段计算统计数据
+  let totalLines = 0
+  let totalOperations = 0
+  let totalNewFiles = 0
+  let totalModifiedFiles = 0
+
+  if (overviewTimePeriod.value === 'today') {
+    // 当天：只获取今天的数据
+    const today = new Date().toISOString().split('T')[0]
+    const todayData = data.daily?.find((d) => d.date === today) || {}
+    totalLines = parseInt(todayData.totalEditedLines || 0)
+    totalOperations = parseInt(todayData.totalEditOperations || 0)
+    totalNewFiles = parseInt(todayData.totalNewFiles || 0)
+    totalModifiedFiles = parseInt(todayData.totalModifiedFiles || 0)
+  } else if (overviewTimePeriod.value === 'all') {
+    // 历史以来：累计所有数据
+    if (data.daily && Array.isArray(data.daily)) {
+      data.daily.forEach((day) => {
+        totalLines += parseInt(day.totalEditedLines || 0)
+        totalOperations += parseInt(day.totalEditOperations || 0)
+        totalNewFiles += parseInt(day.totalNewFiles || 0)
+        totalModifiedFiles += parseInt(day.totalModifiedFiles || 0)
+      })
+    }
+  } else {
+    // 其他时间段：累计指定时间段内的数据
+    if (data.daily && Array.isArray(data.daily)) {
+      data.daily.forEach((day) => {
+        totalLines += parseInt(day.totalEditedLines || 0)
+        totalOperations += parseInt(day.totalEditOperations || 0)
+        totalNewFiles += parseInt(day.totalNewFiles || 0)
+        totalModifiedFiles += parseInt(day.totalModifiedFiles || 0)
+      })
+    }
+  }
+
+  return {
+    periodLines: totalLines,
+    periodOperations: totalOperations,
+    periodNewFiles: totalNewFiles,
+    periodModifiedFiles: totalModifiedFiles
+  }
+}
+
+// 处理工具统计数据
+function processToolStats(data) {
+  const processed = { ...data }
+
+  // 计算指定时间段的工具调用数
+  let periodToolCalls = 0
+  if (toolsTimePeriod.value === 'today') {
+    // 当天：只计算今天的数据
+    const today = new Date().toISOString().split('T')[0]
+    const todayData = data.daily?.[today] || {}
+    Object.values(todayData).forEach((toolData) => {
+      if (typeof toolData === 'object' && toolData !== null && toolData.count) {
+        periodToolCalls += toolData.count
+      }
+    })
+  } else if (toolsTimePeriod.value === 'all') {
+    // 历史以来：使用总计数据
+    Object.values(data.tools || {}).forEach((tool) => {
+      if (tool.totalCount) {
+        periodToolCalls += tool.totalCount
+      }
+    })
+  } else {
+    // 其他时间段：计算指定时间段内的调用数
+    Object.values(data.daily || {}).forEach((dayData) => {
+      Object.values(dayData).forEach((toolData) => {
+        if (typeof toolData === 'object' && toolData !== null && toolData.count) {
+          periodToolCalls += toolData.count
+        }
+      })
+    })
+  }
+
+  processed.periodToolCalls = periodToolCalls
+  return processed
+}
+
+// 处理系统统计数据 (旧方法，保留兼容性)
+function processSystemStatsOld(data) {
   const today = new Date().toISOString().split('T')[0]
   const todayData = data.daily?.find((d) => d.date === today) || {}
 
@@ -871,7 +1151,7 @@ function createToolTrendChart() {
 
   const ctx = toolTrendChart.value.getContext('2d')
   const dates = Object.keys(toolStats.value.daily || {}).reverse()
-  const toolCounts = dates.map(date => {
+  const toolCounts = dates.map((date) => {
     const dayData = toolStats.value.daily[date] || {}
     return Object.values(dayData).reduce((sum, toolData) => {
       return sum + (toolData.count || 0)
@@ -918,8 +1198,8 @@ function createToolDistributionChart() {
   // 过滤掉 Unknown 和 undefined
   const allTools = toolStats.value.tools || {}
   const filteredTools = Object.fromEntries(
-    Object.entries(allTools).filter(([toolName]) => 
-      toolName !== 'Unknown' && toolName !== 'undefined'
+    Object.entries(allTools).filter(
+      ([toolName]) => toolName !== 'Unknown' && toolName !== 'undefined'
     )
   )
   const tools = Object.keys(filteredTools)
@@ -972,14 +1252,14 @@ function getRankClass(index) {
 async function refreshData() {
   showToast('正在刷新统计数据...', 'info')
   await initializeData()
-  
+
   // 刷新时需要重新渲染所有图表，确保隐藏的tab数据也能更新
   await nextTick()
   createTrendChart()
   createLanguageChart()
-  createToolTrendChart() 
+  createToolTrendChart()
   createToolDistributionChart()
-  
+
   showToast('统计数据刷新成功！', 'success')
 }
 
@@ -989,30 +1269,13 @@ async function initializeData() {
 
   try {
     await Promise.all([
-      fetchSystemStats(), 
-      fetchLeaderboard(), 
-      fetchLanguageStats(), 
-      fetchUsers(),
+      fetchSystemStats(),
+      fetchLeaderboard(),
+      fetchLanguageStats(),
       fetchToolStats(),
-      fetchToolRanking()
+      fetchToolRanking(),
+      fetchUsageCosts()
     ])
-
-    // 计算今日工具调用数
-    if (toolStats.value && toolStats.value.daily) {
-      const today = new Date().toISOString().split('T')[0]
-      const todayToolData = toolStats.value.daily[today]
-      
-      let todayToolCalls = 0
-      if (todayToolData) {
-        Object.entries(todayToolData).forEach(([toolName, toolData]) => {
-          if (typeof toolData === 'object' && toolData !== null) {
-            todayToolCalls += (toolData.count || 0)
-          }
-        })
-      }
-      
-      toolStats.value.todayToolCalls = todayToolCalls
-    }
 
     // 等待DOM更新后创建当前tab的图表
     await nextTick()
@@ -1025,30 +1288,84 @@ async function initializeData() {
   }
 }
 
-// 分页控制函数
-function goToPage(page) {
-  if (page >= 1 && page <= totalPages.value) {
-    currentPage.value = page
+// 排行榜分页控制函数
+function goToLeaderboardPage(page) {
+  if (page >= 1 && page <= leaderboardTotalPages.value) {
+    leaderboardPage.value = page
   }
 }
 
-function prevPage() {
-  if (hasPrevPage.value) {
-    currentPage.value--
+function leaderboardPrevPage() {
+  if (leaderboardHasPrevPage.value) {
+    leaderboardPage.value--
   }
 }
 
-function nextPage() {
-  if (hasNextPage.value) {
-    currentPage.value++
+function leaderboardNextPage() {
+  if (leaderboardHasNextPage.value) {
+    leaderboardPage.value++
   }
 }
 
-// 选择用户时重置分页
-async function selectUser(user) {
-  selectedUserId.value = user.keyId
-  currentPage.value = 1  // 重置到第一页
-  await fetchUserStats()
+// 排行榜排序函数
+function sortLeaderboard(field) {
+  if (leaderboardSortBy.value === field) {
+    // 如果已经是当前排序字段，则切换排序顺序
+    leaderboardSortOrder.value = leaderboardSortOrder.value === 'desc' ? 'asc' : 'desc'
+  } else {
+    // 切换到新的排序字段，默认降序
+    leaderboardSortBy.value = field
+    leaderboardSortOrder.value = 'desc'
+  }
+  // 重置到第一页
+  leaderboardPage.value = 1
+}
+
+// 排行榜每页条数变更
+function changeLeaderboardPageSize() {
+  leaderboardPage.value = 1 // 重置到第一页
+}
+
+// 获取排行榜页码列表
+function getLeaderboardPageNumbers() {
+  const total = leaderboardTotalPages.value
+  const current = leaderboardPage.value
+  const pages = []
+
+  if (total <= 7) {
+    // 总页数小于等于7，显示所有页码
+    for (let i = 1; i <= total; i++) {
+      pages.push(i)
+    }
+  } else {
+    // 总页数大于7，智能显示页码
+    if (current <= 4) {
+      // 当前页在前4页
+      for (let i = 1; i <= 5; i++) {
+        pages.push(i)
+      }
+      pages.push('...')
+      pages.push(total)
+    } else if (current >= total - 3) {
+      // 当前页在后4页
+      pages.push(1)
+      pages.push('...')
+      for (let i = total - 4; i <= total; i++) {
+        pages.push(i)
+      }
+    } else {
+      // 当前页在中间
+      pages.push(1)
+      pages.push('...')
+      for (let i = current - 1; i <= current + 1; i++) {
+        pages.push(i)
+      }
+      pages.push('...')
+      pages.push(total)
+    }
+  }
+
+  return pages
 }
 
 // 获取最常用工具
@@ -1056,10 +1373,10 @@ function getMostUsedTool() {
   if (!toolStats.value.tools || Object.keys(toolStats.value.tools).length === 0) {
     return '-'
   }
-  
+
   let maxTool = ''
   let maxCount = 0
-  
+
   Object.entries(toolStats.value.tools).forEach(([tool, data]) => {
     // 过滤掉 Unknown 和 undefined
     if (tool !== 'Unknown' && tool !== 'undefined' && data.totalCount > maxCount) {
@@ -1067,7 +1384,7 @@ function getMostUsedTool() {
       maxTool = tool
     }
   })
-  
+
   return maxTool || '-'
 }
 
@@ -1076,32 +1393,51 @@ function getAvgDailyCalls() {
   if (!toolStats.value.tools || Object.keys(toolStats.value.tools).length === 0) {
     return 0
   }
-  
+
   // 过滤掉 Unknown 和 undefined 后计算总调用数
   const totalCalls = Object.entries(toolStats.value.tools)
     .filter(([toolName]) => toolName !== 'Unknown' && toolName !== 'undefined')
     .reduce((sum, [, tool]) => sum + (tool.totalCount || 0), 0)
   const days = 30 // 假设30天统计周期
-  return Math.round(totalCalls / days * 100) / 100
+  return Math.round((totalCalls / days) * 100) / 100
 }
 
 // 获取工具图标
 function getToolIcon(toolName) {
   const icons = {
-    'Edit': '✏️',
-    'Write': '📝',
-    'Read': '📖',
-    'Bash': '💻',
-    'Grep': '🔍',
-    'Glob': '🌐',
-    'MultiEdit': '📑',
-    'NotebookEdit': '📓',
-    'LS': '📁',
-    'Task': '⚡',
-    'WebFetch': '🌍',
-    'TodoWrite': '✅'
+    Edit: '✏️',
+    Write: '📝',
+    Read: '📖',
+    Bash: '💻',
+    Grep: '🔍',
+    Glob: '🌐',
+    MultiEdit: '📑',
+    NotebookEdit: '📓',
+    LS: '📁',
+    Task: '⚡',
+    WebFetch: '🌍',
+    TodoWrite: '✅'
   }
   return icons[toolName] || '🔧'
+}
+
+// 格式化数字
+function formatNumber(num) {
+  if (!num && num !== 0) return '0'
+  return num.toLocaleString('zh-CN')
+}
+
+// 格式化Token显示（类似仪表盘页面）
+function formatTokens(tokens) {
+  if (!tokens || tokens === 0) return '0'
+
+  if (tokens >= 1000000) {
+    return (tokens / 1000000).toFixed(2) + 'M'
+  } else if (tokens >= 1000) {
+    return (tokens / 1000).toFixed(2) + 'K'
+  } else {
+    return tokens.toString()
+  }
 }
 
 // 根据当前tab渲染相应图表
@@ -1128,5 +1464,11 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 自定义样式 */
+.stat-icon {
+  @apply flex h-12 w-12 items-center justify-center rounded-lg text-white;
+}
+
+.stat-icon i {
+  @apply text-lg;
+}
 </style>

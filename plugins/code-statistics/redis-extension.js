@@ -27,37 +27,48 @@ class CodeStatisticsRedis {
     const currentMonth = this.getMonthString(now)
 
     const pipeline = this.redis.getClient().pipeline()
+    
+    const hasEditContent = editStats.totalEditedLines > 0
 
-    // API Key 级别统计
-    const keyStatsKey = `${this.prefix}key:${keyId}`
-    pipeline.hincrby(keyStatsKey, 'totalEditedLines', editStats.totalEditedLines)
-    pipeline.hincrby(keyStatsKey, 'totalEditOperations', editStats.editOperations)
-    pipeline.hincrby(keyStatsKey, 'totalNewFiles', editStats.newFiles)
-    pipeline.hincrby(keyStatsKey, 'totalModifiedFiles', editStats.modifiedFiles)
+    // 只有真正有编辑内容时才记录编辑相关的统计
+    if (hasEditContent) {
+      // API Key 级别编辑统计
+      const keyStatsKey = `${this.prefix}key:${keyId}`
+      pipeline.hincrby(keyStatsKey, 'totalEditedLines', editStats.totalEditedLines)
+      pipeline.hincrby(keyStatsKey, 'totalEditOperations', editStats.editOperations)
+      pipeline.hincrby(keyStatsKey, 'totalNewFiles', editStats.newFiles)
+      pipeline.hincrby(keyStatsKey, 'totalModifiedFiles', editStats.modifiedFiles)
 
-    // 每日统计
-    const dailyKey = `${this.prefix}daily:${keyId}:${today}`
-    pipeline.hincrby(dailyKey, 'editedLines', editStats.totalEditedLines)
-    pipeline.hincrby(dailyKey, 'editOperations', editStats.editOperations)
-    pipeline.hincrby(dailyKey, 'newFiles', editStats.newFiles)
-    pipeline.hincrby(dailyKey, 'modifiedFiles', editStats.modifiedFiles)
-    pipeline.hset(dailyKey, 'lastUpdated', now.toISOString())
-    pipeline.expire(dailyKey, 86400 * 90) // 保留90天
+      // 每日编辑统计
+      const dailyKey = `${this.prefix}daily:${keyId}:${today}`
+      pipeline.hincrby(dailyKey, 'editedLines', editStats.totalEditedLines)
+      pipeline.hincrby(dailyKey, 'editOperations', editStats.editOperations)
+      pipeline.hincrby(dailyKey, 'newFiles', editStats.newFiles)
+      pipeline.hincrby(dailyKey, 'modifiedFiles', editStats.modifiedFiles)
+      pipeline.hset(dailyKey, 'lastUpdated', now.toISOString())
+      pipeline.expire(dailyKey, 86400 * 90) // 保留90天
 
-    // 每月统计
-    const monthlyKey = `${this.prefix}monthly:${keyId}:${currentMonth}`
-    pipeline.hincrby(monthlyKey, 'editedLines', editStats.totalEditedLines)
-    pipeline.hincrby(monthlyKey, 'editOperations', editStats.editOperations)
-    pipeline.expire(monthlyKey, 86400 * 365) // 保留1年
+      // 每月编辑统计
+      const monthlyKey = `${this.prefix}monthly:${keyId}:${currentMonth}`
+      pipeline.hincrby(monthlyKey, 'editedLines', editStats.totalEditedLines)
+      pipeline.hincrby(monthlyKey, 'editOperations', editStats.editOperations)
+      pipeline.expire(monthlyKey, 86400 * 365) // 保留1年
+    }
 
-    // 工具调用统计 - 新增功能
+    // 工具调用统计 - 独立于编辑内容，总是记录
     if (editStats.toolUsage && Object.keys(editStats.toolUsage).length > 0) {
+      // 确保基础键存在（无论是否有编辑内容）
+      const keyStatsKey = `${this.prefix}key:${keyId}`
+      const dailyKey = `${this.prefix}daily:${keyId}:${today}`
+      pipeline.expire(dailyKey, 86400 * 90) // 保留90天
+      
       for (const [toolName, count] of Object.entries(editStats.toolUsage)) {
         // API Key级别的工具调用统计
         pipeline.hincrby(keyStatsKey, `tool_${toolName}`, count)
         
         // 每日工具调用统计
         pipeline.hincrby(dailyKey, `tool_${toolName}`, count)
+        pipeline.hset(dailyKey, 'lastUpdated', now.toISOString())
         
         // 系统级每日工具调用统计
         const systemDailyKey = `${this.prefix}system:daily:${today}`
@@ -73,32 +84,38 @@ class CodeStatisticsRedis {
       }
     }
 
-    // 按编程语言统计
-    for (const [language, lines] of Object.entries(editStats.languages)) {
-      const langDailyKey = `${this.prefix}language:daily:${language}:${today}`
-      pipeline.hincrby(langDailyKey, 'lines', lines)
-      pipeline.hincrby(langDailyKey, 'operations', 1)
-      pipeline.expire(langDailyKey, 86400 * 90)
+    // 按编程语言统计 - 只在有编辑内容时记录
+    if (hasEditContent && editStats.languages && Object.keys(editStats.languages).length > 0) {
+      for (const [language, lines] of Object.entries(editStats.languages)) {
+        const langDailyKey = `${this.prefix}language:daily:${language}:${today}`
+        pipeline.hincrby(langDailyKey, 'lines', lines)
+        pipeline.hincrby(langDailyKey, 'operations', 1)
+        pipeline.expire(langDailyKey, 86400 * 90)
 
-      const keyLangDailyKey = `${this.prefix}key:${keyId}:language:daily:${language}:${today}`
-      pipeline.hincrby(keyLangDailyKey, 'lines', lines)
-      pipeline.expire(keyLangDailyKey, 86400 * 90)
+        const keyLangDailyKey = `${this.prefix}key:${keyId}:language:daily:${language}:${today}`
+        pipeline.hincrby(keyLangDailyKey, 'lines', lines)
+        pipeline.expire(keyLangDailyKey, 86400 * 90)
+      }
     }
 
-    // 按文件类型统计
-    for (const [fileType, lines] of Object.entries(editStats.fileTypes)) {
-      const typeDailyKey = `${this.prefix}filetype:daily:${fileType}:${today}`
-      pipeline.hincrby(typeDailyKey, 'lines', lines)
-      pipeline.expire(typeDailyKey, 86400 * 90)
+    // 按文件类型统计 - 只在有编辑内容时记录
+    if (hasEditContent && editStats.fileTypes && Object.keys(editStats.fileTypes).length > 0) {
+      for (const [fileType, lines] of Object.entries(editStats.fileTypes)) {
+        const typeDailyKey = `${this.prefix}filetype:daily:${fileType}:${today}`
+        pipeline.hincrby(typeDailyKey, 'lines', lines)
+        pipeline.expire(typeDailyKey, 86400 * 90)
+      }
     }
 
-    // 系统级统计
-    const systemDailyKey = `${this.prefix}system:daily:${today}`
-    pipeline.hincrby(systemDailyKey, 'totalEditedLines', editStats.totalEditedLines)
-    pipeline.hincrby(systemDailyKey, 'totalEditOperations', editStats.editOperations)
-    pipeline.hincrby(systemDailyKey, 'totalNewFiles', editStats.newFiles)
-    pipeline.hincrby(systemDailyKey, 'totalModifiedFiles', editStats.modifiedFiles)
-    pipeline.expire(systemDailyKey, 86400 * 365)
+    // 系统级统计 - 只在有编辑内容时记录
+    if (hasEditContent) {
+      const systemDailyKey = `${this.prefix}system:daily:${today}`
+      pipeline.hincrby(systemDailyKey, 'totalEditedLines', editStats.totalEditedLines)
+      pipeline.hincrby(systemDailyKey, 'totalEditOperations', editStats.editOperations)
+      pipeline.hincrby(systemDailyKey, 'totalNewFiles', editStats.newFiles)
+      pipeline.hincrby(systemDailyKey, 'totalModifiedFiles', editStats.modifiedFiles)
+      pipeline.expire(systemDailyKey, 86400 * 365)
+    }
 
     try {
       await pipeline.exec()
@@ -227,7 +244,13 @@ class CodeStatisticsRedis {
       const leaderboard = []
 
       for (const key of keys) {
-        const keyId = key.split(':')[2]
+        // 只处理基础的用户统计键，过滤掉语言统计键等子键
+        const parts = key.split(':')
+        if (parts.length !== 3) { // code_stats:key:keyId 应该正好是3部分
+          continue
+        }
+        
+        const keyId = parts[2]
         const data = await this.redis.getClient().hgetall(key)
 
         if (data.totalEditedLines) {
@@ -235,13 +258,27 @@ class CodeStatisticsRedis {
           const apiKeyInfo = await this.redis.getClient().hgetall(`apikey:${keyId}`)
           const userName = apiKeyInfo.name || keyId
           
+          // 获取总请求数和总费用
+          const usageTotalKey = `usage:${keyId}`
+          const costTotalKey = `usage:cost:total:${keyId}`
+          
+          const [usageData, totalCost] = await Promise.all([
+            this.redis.getClient().hgetall(usageTotalKey),
+            this.redis.getClient().get(costTotalKey)
+          ])
+          
+          const totalRequests = parseInt(usageData.totalRequests || usageData.requests || 0)
+          const totalCostValue = parseFloat(totalCost || 0)
+          
           leaderboard.push({
             keyId,
             userName,
             totalEditedLines: parseInt(data.totalEditedLines || 0),
             totalEditOperations: parseInt(data.totalEditOperations || 0),
             totalNewFiles: parseInt(data.totalNewFiles || 0),
-            totalModifiedFiles: parseInt(data.totalModifiedFiles || 0)
+            totalModifiedFiles: parseInt(data.totalModifiedFiles || 0),
+            totalRequests: totalRequests,
+            totalCost: totalCostValue
           })
         }
       }
@@ -252,6 +289,170 @@ class CodeStatisticsRedis {
       return leaderboard.slice(0, limit)
     } catch (error) {
       logger.error('❌ Failed to get leaderboard:', error)
+      return []
+    }
+  }
+
+  /**
+   * 获取指定天数内的排行榜数据
+   */
+  async getLeaderboardByDays(limit = 10, days = 7) {
+    try {
+      const keys = await this.redis.getClient().keys(`${this.prefix}key:*`)
+      const leaderboard = []
+      const today = new Date()
+
+      for (const key of keys) {
+        // 只处理基础的用户统计键，过滤掉语言统计键等子键
+        const parts = key.split(':')
+        if (parts.length !== 3) { // code_stats:key:keyId 应该正好是3部分
+          continue
+        }
+        
+        const keyId = parts[2]
+        let totalLines = 0
+        let totalOperations = 0
+        let totalNewFiles = 0
+        let totalModifiedFiles = 0
+
+        // 累计指定天数的统计数据
+        let totalRequests = 0
+        let totalCost = 0
+        
+        for (let i = 0; i < days; i++) {
+          const date = new Date(today)
+          date.setDate(date.getDate() - i)
+          const dateString = this.getDateString(date)
+          
+          const dailyKey = `${this.prefix}daily:${keyId}:${dateString}`
+          const dailyData = await this.redis.getClient().hgetall(dailyKey)
+          
+          totalLines += parseInt(dailyData.editedLines || 0)
+          totalOperations += parseInt(dailyData.editOperations || 0)
+          totalNewFiles += parseInt(dailyData.newFiles || 0)
+          totalModifiedFiles += parseInt(dailyData.modifiedFiles || 0)
+          
+          // 获取对应日期的请求数和费用
+          const usageDailyKey = `usage:daily:${keyId}:${dateString}`
+          const costDailyKey = `usage:cost:daily:${keyId}:${dateString}`
+          
+          const [usageData, costData] = await Promise.all([
+            this.redis.getClient().hgetall(usageDailyKey),
+            this.redis.getClient().get(costDailyKey)
+          ])
+          
+          totalRequests += parseInt(usageData.totalRequests || usageData.requests || 0)
+          totalCost += parseFloat(costData || 0)
+        }
+
+        // 只包含有数据的用户
+        if (totalLines > 0 || totalOperations > 0) {
+          // 获取API Key的详细信息来获取用户名
+          const apiKeyInfo = await this.redis.getClient().hgetall(`apikey:${keyId}`)
+          const userName = apiKeyInfo.name || keyId
+          
+          leaderboard.push({
+            keyId,
+            userName,
+            totalEditedLines: totalLines,
+            totalEditOperations: totalOperations,
+            totalNewFiles: totalNewFiles,
+            totalModifiedFiles: totalModifiedFiles,
+            totalRequests: totalRequests,
+            totalCost: totalCost
+          })
+        }
+      }
+
+      // 按编辑行数排序
+      leaderboard.sort((a, b) => b.totalEditedLines - a.totalEditedLines)
+
+      return leaderboard.slice(0, limit)
+    } catch (error) {
+      logger.error('❌ Failed to get leaderboard by days:', error)
+      return []
+    }
+  }
+
+  /**
+   * 获取当月排行榜数据
+   */
+  async getLeaderboardByMonth(limit = 10) {
+    try {
+      const keys = await this.redis.getClient().keys(`${this.prefix}key:*`)
+      const leaderboard = []
+      const today = new Date()
+      const year = today.getFullYear()
+      const month = today.getMonth() + 1
+
+      for (const key of keys) {
+        // 只处理基础的用户统计键，过滤掉语言统计键等子键
+        const parts = key.split(':')
+        if (parts.length !== 3) { // code_stats:key:keyId 应该正好是3部分
+          continue
+        }
+        
+        const keyId = parts[2]
+        let totalLines = 0
+        let totalOperations = 0
+        let totalNewFiles = 0
+        let totalModifiedFiles = 0
+
+        // 获取当月的所有日期
+        let totalRequests = 0
+        let totalCost = 0
+        
+        const daysInMonth = new Date(year, month, 0).getDate()
+        for (let day = 1; day <= daysInMonth; day++) {
+          const date = new Date(year, month - 1, day)
+          const dateString = this.getDateString(date)
+          
+          const dailyKey = `${this.prefix}daily:${keyId}:${dateString}`
+          const dailyData = await this.redis.getClient().hgetall(dailyKey)
+          
+          totalLines += parseInt(dailyData.editedLines || 0)
+          totalOperations += parseInt(dailyData.editOperations || 0)
+          totalNewFiles += parseInt(dailyData.newFiles || 0)
+          totalModifiedFiles += parseInt(dailyData.modifiedFiles || 0)
+          
+          // 获取对应日期的请求数和费用
+          const usageDailyKey = `usage:daily:${keyId}:${dateString}`
+          const costDailyKey = `usage:cost:daily:${keyId}:${dateString}`
+          
+          const [usageData, costData] = await Promise.all([
+            this.redis.getClient().hgetall(usageDailyKey),
+            this.redis.getClient().get(costDailyKey)
+          ])
+          
+          totalRequests += parseInt(usageData.totalRequests || usageData.requests || 0)
+          totalCost += parseFloat(costData || 0)
+        }
+
+        // 只包含有数据的用户
+        if (totalLines > 0 || totalOperations > 0) {
+          // 获取API Key的详细信息来获取用户名
+          const apiKeyInfo = await this.redis.getClient().hgetall(`apikey:${keyId}`)
+          const userName = apiKeyInfo.name || keyId
+          
+          leaderboard.push({
+            keyId,
+            userName,
+            totalEditedLines: totalLines,
+            totalEditOperations: totalOperations,
+            totalNewFiles: totalNewFiles,
+            totalModifiedFiles: totalModifiedFiles,
+            totalRequests: totalRequests,
+            totalCost: totalCost
+          })
+        }
+      }
+
+      // 按编辑行数排序
+      leaderboard.sort((a, b) => b.totalEditedLines - a.totalEditedLines)
+
+      return leaderboard.slice(0, limit)
+    } catch (error) {
+      logger.error('❌ Failed to get leaderboard by month:', error)
       return []
     }
   }

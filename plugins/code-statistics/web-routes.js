@@ -66,9 +66,20 @@ adminRouter.get('/languages', authenticateAdmin, async (req, res) => {
 // 管理员路由 - 获取代码统计排行榜
 adminRouter.get('/leaderboard', authenticateAdmin, async (req, res) => {
   try {
-    const { limit = 10 } = req.query
+    const { limit = 10, days, month, all } = req.query
 
-    const leaderboard = await redisExtension.getLeaderboard(parseInt(limit))
+    let leaderboard
+    if (all === 'true') {
+      // 获取历史以来的排行榜
+      leaderboard = await redisExtension.getLeaderboard(parseInt(limit))
+    } else if (month === 'current') {
+      // 获取当月排行榜
+      leaderboard = await redisExtension.getLeaderboardByMonth(parseInt(limit))
+    } else {
+      // 获取指定天数的排行榜
+      const daysNum = days ? parseInt(days) : 30
+      leaderboard = await redisExtension.getLeaderboardByDays(parseInt(limit), daysNum)
+    }
 
     res.json({
       success: true,
@@ -103,9 +114,18 @@ adminRouter.get('/users', authenticateAdmin, async (req, res) => {
 adminRouter.get('/users/:keyId', authenticateAdmin, async (req, res) => {
   try {
     const { keyId } = req.params
-    const { days = 30 } = req.query
+    const { days, month, all } = req.query
 
-    const stats = await redisExtension.getUserStatistics(keyId, parseInt(days))
+    let daysNum = 30 // 默认值
+    if (all === 'true') {
+      daysNum = 365 // 获取一年的数据作为历史数据
+    } else if (month === 'current') {
+      daysNum = 31 // 当月最多31天
+    } else if (days) {
+      daysNum = parseInt(days)
+    }
+
+    const stats = await redisExtension.getUserStatistics(keyId, daysNum)
 
     res.json({
       success: true,

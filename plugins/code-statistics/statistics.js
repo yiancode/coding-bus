@@ -83,7 +83,8 @@ function extractEditStatistics(response) {
     logger.info('📊 Code statistics extracted', {
       lines: stats.totalEditedLines,
       operations: stats.editOperations,
-      tools: Object.keys(stats.toolUsage).length
+      tools: Object.keys(stats.toolUsage).length,
+      toolList: Object.keys(stats.toolUsage).join(', ') // 添加工具列表日志
     })
   }
 
@@ -620,7 +621,7 @@ function estimateEditedLines(command, analysis) {
 function processOtherTool(toolUse) {
   const result = {
     lines: 0,
-    operations: 1,
+    operations: 0,  // 非编辑工具不计入编辑操作次数
     type: 'read',
     fileType: null,
     language: null
