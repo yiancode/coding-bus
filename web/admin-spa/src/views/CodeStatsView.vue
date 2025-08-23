@@ -97,7 +97,7 @@
             <div class="flex items-center justify-between">
               <div class="mr-8 flex-1">
                 <p class="mb-1 text-xs font-semibold text-gray-600 sm:text-sm">
-                  {{ getOverviewCardTitle('创建文件数') }}
+                  {{ getOverviewCardTitle('创建文件次数') }}
                 </p>
                 <div class="mb-2 flex flex-wrap items-baseline gap-2">
                   <p class="text-xl font-bold text-purple-600 sm:text-2xl md:text-3xl">
@@ -116,7 +116,7 @@
             <div class="flex items-center justify-between">
               <div class="mr-8 flex-1">
                 <p class="mb-1 text-xs font-semibold text-gray-600 sm:text-sm">
-                  {{ getOverviewCardTitle('修改文件数') }}
+                  {{ getOverviewCardTitle('修改文件次数') }}
                 </p>
                 <div class="mb-2 flex flex-wrap items-baseline gap-2">
                   <p class="text-xl font-bold text-orange-600 sm:text-2xl md:text-3xl">
@@ -217,7 +217,7 @@
                     @click="sortLeaderboard('totalNewFiles')"
                   >
                     <div class="flex items-center">
-                      新建文件
+                      新建文件次数
                       <span class="ml-1">
                         <i
                           v-if="leaderboardSortBy === 'totalNewFiles'"
@@ -237,7 +237,7 @@
                     @click="sortLeaderboard('totalModifiedFiles')"
                   >
                     <div class="flex items-center">
-                      修改文件
+                      修改文件次数
                       <span class="ml-1">
                         <i
                           v-if="leaderboardSortBy === 'totalModifiedFiles'"
