@@ -57,13 +57,13 @@
               <button
                 v-for="option in timePeriodOptions"
                 :key="option.value"
-                @click="changeOverviewTimePeriod(option.value)"
                 :class="[
                   'px-3 py-1.5 text-sm font-medium transition-all duration-200 first:rounded-l-lg last:rounded-r-lg',
                   overviewTimePeriod === option.value
                     ? 'bg-blue-500 text-white shadow-sm'
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 ]"
+                @click="changeOverviewTimePeriod(option.value)"
               >
                 {{ option.label }}
               </button>
@@ -201,12 +201,12 @@
                       <span class="ml-1">
                         <i
                           v-if="leaderboardSortBy === 'totalEditedLines'"
+                          class="text-xs text-blue-500"
                           :class="
                             leaderboardSortOrder === 'desc'
                               ? 'fas fa-chevron-down'
                               : 'fas fa-chevron-up'
                           "
-                          class="text-xs text-blue-500"
                         ></i>
                         <i v-else class="fas fa-sort text-xs text-gray-400"></i>
                       </span>
@@ -221,12 +221,12 @@
                       <span class="ml-1">
                         <i
                           v-if="leaderboardSortBy === 'totalNewFiles'"
+                          class="text-xs text-blue-500"
                           :class="
                             leaderboardSortOrder === 'desc'
                               ? 'fas fa-chevron-down'
                               : 'fas fa-chevron-up'
                           "
-                          class="text-xs text-blue-500"
                         ></i>
                         <i v-else class="fas fa-sort text-xs text-gray-400"></i>
                       </span>
@@ -241,12 +241,12 @@
                       <span class="ml-1">
                         <i
                           v-if="leaderboardSortBy === 'totalModifiedFiles'"
+                          class="text-xs text-blue-500"
                           :class="
                             leaderboardSortOrder === 'desc'
                               ? 'fas fa-chevron-down'
                               : 'fas fa-chevron-up'
                           "
-                          class="text-xs text-blue-500"
                         ></i>
                         <i v-else class="fas fa-sort text-xs text-gray-400"></i>
                       </span>
@@ -261,12 +261,12 @@
                       <span class="ml-1">
                         <i
                           v-if="leaderboardSortBy === 'totalRequests'"
+                          class="text-xs text-blue-500"
                           :class="
                             leaderboardSortOrder === 'desc'
                               ? 'fas fa-chevron-down'
                               : 'fas fa-chevron-up'
                           "
-                          class="text-xs text-blue-500"
                         ></i>
                         <i v-else class="fas fa-sort text-xs text-gray-400"></i>
                       </span>
@@ -281,12 +281,12 @@
                       <span class="ml-1">
                         <i
                           v-if="leaderboardSortBy === 'totalCost'"
+                          class="text-xs text-blue-500"
                           :class="
                             leaderboardSortOrder === 'desc'
                               ? 'fas fa-chevron-down'
                               : 'fas fa-chevron-up'
                           "
-                          class="text-xs text-blue-500"
                         ></i>
                         <i v-else class="fas fa-sort text-xs text-gray-400"></i>
                       </span>
@@ -338,8 +338,8 @@
                 <span class="text-sm text-gray-700">每页显示:</span>
                 <select
                   v-model="leaderboardPageSize"
-                  @change="changeLeaderboardPageSize"
                   class="rounded-md border border-gray-300 bg-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  @change="changeLeaderboardPageSize"
                 >
                   <option :value="10">10 条</option>
                   <option :value="20">20 条</option>
@@ -367,32 +367,32 @@
 
                 <div v-if="leaderboardTotalPages > 1">
                   <nav
-                    class="isolate inline-flex -space-x-px rounded-md shadow-sm"
                     aria-label="分页"
+                    class="isolate inline-flex -space-x-px rounded-md shadow-sm"
                   >
                     <button
-                      @click="leaderboardPrevPage"
-                      :disabled="!leaderboardHasPrevPage"
                       :class="[
                         'relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0',
                         leaderboardHasPrevPage ? 'hover:text-gray-500' : 'cursor-not-allowed'
                       ]"
+                      :disabled="!leaderboardHasPrevPage"
+                      @click="leaderboardPrevPage"
                     >
                       <span class="sr-only">上一页</span>
-                      <i class="fas fa-chevron-left h-5 w-5" aria-hidden="true"></i>
+                      <i aria-hidden="true" class="fas fa-chevron-left h-5 w-5"></i>
                     </button>
 
                     <!-- 页码按钮 -->
                     <template v-for="page in getLeaderboardPageNumbers()" :key="page">
                       <button
                         v-if="page !== '...'"
-                        @click="goToLeaderboardPage(page)"
                         :class="[
                           'relative inline-flex items-center px-4 py-2 text-sm font-semibold ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0',
                           page === leaderboardPage
                             ? 'z-10 bg-blue-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600'
                             : 'text-gray-900'
                         ]"
+                        @click="goToLeaderboardPage(page)"
                       >
                         {{ page }}
                       </button>
@@ -405,15 +405,15 @@
                     </template>
 
                     <button
-                      @click="leaderboardNextPage"
-                      :disabled="!leaderboardHasNextPage"
                       :class="[
                         'relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0',
                         leaderboardHasNextPage ? 'hover:text-gray-500' : 'cursor-not-allowed'
                       ]"
+                      :disabled="!leaderboardHasNextPage"
+                      @click="leaderboardNextPage"
                     >
                       <span class="sr-only">下一页</span>
-                      <i class="fas fa-chevron-right h-5 w-5" aria-hidden="true"></i>
+                      <i aria-hidden="true" class="fas fa-chevron-right h-5 w-5"></i>
                     </button>
                   </nav>
                 </div>
@@ -423,26 +423,26 @@
             <!-- 移动端分页 -->
             <div class="flex flex-1 justify-between sm:hidden">
               <button
-                @click="leaderboardPrevPage"
-                :disabled="!leaderboardHasPrevPage"
                 :class="[
                   'relative inline-flex items-center rounded-md border px-4 py-2 text-sm font-medium',
                   leaderboardHasPrevPage
                     ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
                     : 'cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400'
                 ]"
+                :disabled="!leaderboardHasPrevPage"
+                @click="leaderboardPrevPage"
               >
                 上一页
               </button>
               <button
-                @click="leaderboardNextPage"
-                :disabled="!leaderboardHasNextPage"
                 :class="[
                   'relative ml-3 inline-flex items-center rounded-md border px-4 py-2 text-sm font-medium',
                   leaderboardHasNextPage
                     ? 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
                     : 'cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400'
                 ]"
+                :disabled="!leaderboardHasNextPage"
+                @click="leaderboardNextPage"
               >
                 下一页
               </button>
@@ -461,13 +461,13 @@
               <button
                 v-for="option in timePeriodOptions"
                 :key="option.value"
-                @click="changeToolsTimePeriod(option.value)"
                 :class="[
                   'px-3 py-1.5 text-sm font-medium transition-all duration-200 first:rounded-l-lg last:rounded-r-lg',
                   toolsTimePeriod === option.value
                     ? 'bg-blue-500 text-white shadow-sm'
                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                 ]"
+                @click="changeToolsTimePeriod(option.value)"
               >
                 {{ option.label }}
               </button>
@@ -1027,19 +1027,6 @@ function processToolStats(data) {
   return processed
 }
 
-// 处理系统统计数据 (旧方法，保留兼容性)
-function processSystemStatsOld(data) {
-  const today = new Date().toISOString().split('T')[0]
-  const todayData = data.daily?.find((d) => d.date === today) || {}
-
-  return {
-    todayLines: parseInt(todayData.totalEditedLines || 0),
-    todayOperations: parseInt(todayData.totalEditOperations || 0),
-    todayNewFiles: parseInt(todayData.totalNewFiles || 0),
-    todayModifiedFiles: parseInt(todayData.totalModifiedFiles || 0)
-  }
-}
-
 // 创建趋势图表
 function createTrendChart() {
   // 检查canvas元素是否存在且可见
@@ -1388,20 +1375,6 @@ function getMostUsedTool() {
   return maxTool || '-'
 }
 
-// 获取日均调用数
-function getAvgDailyCalls() {
-  if (!toolStats.value.tools || Object.keys(toolStats.value.tools).length === 0) {
-    return 0
-  }
-
-  // 过滤掉 Unknown 和 undefined 后计算总调用数
-  const totalCalls = Object.entries(toolStats.value.tools)
-    .filter(([toolName]) => toolName !== 'Unknown' && toolName !== 'undefined')
-    .reduce((sum, [, tool]) => sum + (tool.totalCount || 0), 0)
-  const days = 30 // 假设30天统计周期
-  return Math.round((totalCalls / days) * 100) / 100
-}
-
 // 获取工具图标
 function getToolIcon(toolName) {
   const icons = {
@@ -1452,7 +1425,7 @@ function renderCurrentTabCharts() {
 }
 
 // 监听标签页切换，重新渲染图表
-watch(activeTab, async (newTab) => {
+watch(activeTab, async () => {
   await nextTick()
   renderCurrentTabCharts()
 })
