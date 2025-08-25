@@ -1,0 +1,203 @@
+const express = require('express')
+const redisExtension = require('./redis-extension')
+const { authenticateAdmin } = require('../../src/middleware/auth')
+
+const apiRouter = express.Router()
+const adminRouter = express.Router()
+
+// API 路由 - 获取 API Key 的代码统计
+apiRouter.get('/:keyId', async (req, res) => {
+  try {
+    const { keyId } = req.params
+    const { days = 7 } = req.query
+
+    const stats = await redisExtension.getKeyEditStatistics(keyId, parseInt(days))
+
+    res.json({
+      success: true,
+      data: stats
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    })
+  }
+})
+
+// 管理员路由 - 获取系统级代码统计
+adminRouter.get('/system', authenticateAdmin, async (req, res) => {
+  try {
+    const { days = 30 } = req.query
+
+    const stats = await redisExtension.getSystemEditStatistics(parseInt(days))
+
+    res.json({
+      success: true,
+      data: stats
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    })
+  }
+})
+
+// 管理员路由 - 获取语言统计
+adminRouter.get('/languages', authenticateAdmin, async (req, res) => {
+  try {
+    const { days = 30 } = req.query
+
+    const stats = await redisExtension.getLanguageStatistics(parseInt(days))
+
+    res.json({
+      success: true,
+      data: stats
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    })
+  }
+})
+
+// 管理员路由 - 获取代码统计排行榜
+adminRouter.get('/leaderboard', authenticateAdmin, async (req, res) => {
+  try {
+    const { limit = 10, days, month, all } = req.query
+
+    let leaderboard
+    if (all === 'true') {
+      // 获取历史以来的排行榜
+      leaderboard = await redisExtension.getLeaderboard(parseInt(limit))
+    } else if (month === 'current') {
+      // 获取当月排行榜
+      leaderboard = await redisExtension.getLeaderboardByMonth(parseInt(limit))
+    } else {
+      // 获取指定天数的排行榜
+      const daysNum = days ? parseInt(days) : 30
+      leaderboard = await redisExtension.getLeaderboardByDays(parseInt(limit), daysNum)
+    }
+
+    res.json({
+      success: true,
+      data: leaderboard
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    })
+  }
+})
+
+// 管理员路由 - 获取所有用户列表
+adminRouter.get('/users', authenticateAdmin, async (req, res) => {
+  try {
+    const users = await redisExtension.getAllUsers()
+
+    res.json({
+      success: true,
+      data: users
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    })
+  }
+})
+
+// 管理员路由 - 获取指定用户的统计数据
+adminRouter.get('/users/:keyId', authenticateAdmin, async (req, res) => {
+  try {
+    const { keyId } = req.params
+    const { days, month, all } = req.query
+
+    let daysNum = 30 // 默认值
+    if (all === 'true') {
+      daysNum = 365 // 获取一年的数据作为历史数据
+    } else if (month === 'current') {
+      daysNum = 31 // 当月最多31天
+    } else if (days) {
+      daysNum = parseInt(days)
+    }
+
+    const stats = await redisExtension.getUserStatistics(keyId, daysNum)
+
+    res.json({
+      success: true,
+      data: stats
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    })
+  }
+})
+
+// 管理员路由 - 获取工具调用统计
+adminRouter.get('/tools', authenticateAdmin, async (req, res) => {
+  try {
+    const { days = 30 } = req.query
+
+    const stats = await redisExtension.getToolUsageStatistics(parseInt(days))
+
+    res.json({
+      success: true,
+      data: stats
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    })
+  }
+})
+
+// 管理员路由 - 获取工具调用排行榜
+adminRouter.get('/tools/ranking', authenticateAdmin, async (req, res) => {
+  try {
+    const { limit = 10, days = 30 } = req.query
+
+    const ranking = await redisExtension.getTopToolsRanking(parseInt(limit), parseInt(days))
+
+    res.json({
+      success: true,
+      data: ranking
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    })
+  }
+})
+
+// 管理员路由 - 获取指定用户的工具调用统计
+adminRouter.get('/users/:keyId/tools', authenticateAdmin, async (req, res) => {
+  try {
+    const { keyId } = req.params
+    const { days = 30 } = req.query
+
+    const stats = await redisExtension.getUserToolUsageStatistics(keyId, parseInt(days))
+
+    res.json({
+      success: true,
+      data: stats
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    })
+  }
+})
+
+module.exports = {
+  api: apiRouter,
+  admin: adminRouter
+}
