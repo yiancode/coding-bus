@@ -133,23 +133,6 @@ async function handleMessagesRequest(req, res) {
 
               apiKeyService
                 .recordUsageWithDetails(req.apiKey.id, usageObject, model, usageAccountId, 'claude')
-                .then(async () => {
-                  // 🔌 插件钩子：使用量记录完成后
-                  if (global.pluginHooks?.afterUsageRecord) {
-                    try {
-                      // 使用真实的响应内容而非虚假数据
-                      const response = usageData.response || { content: [] }
-                      await global.pluginHooks.afterUsageRecord(
-                        req.apiKey.id,
-                        usageData,
-                        model,
-                        response
-                      )
-                    } catch (hookError) {
-                      logger.error('❌ Plugin hook error:', hookError)
-                    }
-                  }
-                })
                 .catch((error) => {
                   logger.error('❌ Failed to record stream usage:', error)
                 })
@@ -259,23 +242,6 @@ async function handleMessagesRequest(req, res) {
                   usageAccountId,
                   'claude-console'
                 )
-                .then(async () => {
-                  // 🔌 插件钩子：使用量记录完成后
-                  if (global.pluginHooks?.afterUsageRecord) {
-                    try {
-                      // 使用真实的响应内容而非虚假数据
-                      const response = usageData.response || { content: [] }
-                      await global.pluginHooks.afterUsageRecord(
-                        req.apiKey.id,
-                        usageData,
-                        model,
-                        response
-                      )
-                    } catch (hookError) {
-                      logger.error('❌ Plugin hook error:', hookError)
-                    }
-                  }
-                })
                 .catch((error) => {
                   logger.error('❌ Failed to record stream usage:', error)
                 })
@@ -530,20 +496,6 @@ async function handleMessagesRequest(req, res) {
             model,
             responseAccountId
           )
-
-          // 🔌 插件钩子：使用量记录完成后
-          if (global.pluginHooks?.afterUsageRecord) {
-            try {
-              await global.pluginHooks.afterUsageRecord(
-                req.apiKey.id,
-                jsonData.usage,
-                model,
-                jsonData
-              )
-            } catch (hookError) {
-              logger.error('❌ Plugin hook error:', hookError)
-            }
-          }
 
           // 更新时间窗口内的token计数和费用
           if (req.rateLimitInfo) {

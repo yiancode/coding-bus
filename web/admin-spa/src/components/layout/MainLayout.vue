@@ -39,7 +39,6 @@ const tabRouteMap = computed(() => {
     dashboard: '/dashboard',
     apiKeys: '/api-keys',
     accounts: '/accounts',
-    codeStats: '/code-stats',
     tutorial: '/tutorial',
     settings: '/settings'
   }

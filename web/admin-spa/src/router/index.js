@@ -15,7 +15,6 @@ const AccountsView = () => import('@/views/AccountsView.vue')
 const TutorialView = () => import('@/views/TutorialView.vue')
 const SettingsView = () => import('@/views/SettingsView.vue')
 const ApiStatsView = () => import('@/views/ApiStatsView.vue')
-const CodeStatsView = () => import('@/views/CodeStatsView.vue')
 
 const routes = [
   {
@@ -119,18 +118,6 @@ const routes = [
         path: '',
         name: 'Settings',
         component: SettingsView
-      }
-    ]
-  },
-  {
-    path: '/code-stats',
-    component: MainLayout,
-    meta: { requiresAuth: true },
-    children: [
-      {
-        path: '',
-        name: 'CodeStats',
-        component: CodeStatsView
       }
     ]
   },
