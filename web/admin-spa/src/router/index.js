@@ -123,6 +123,18 @@ const routes = [
     ]
   },
   {
+    path: '/code-stats',
+    component: MainLayout,
+    meta: { requiresAuth: true },
+    children: [
+      {
+        path: '',
+        name: 'CodeStats',
+        component: CodeStatsView
+      }
+    ]
+  },
+  {
     path: '/user-management',
     component: MainLayout,
     meta: { requiresAuth: true },
