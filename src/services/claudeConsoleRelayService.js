@@ -66,14 +66,6 @@ class ClaudeConsoleRelayService {
       // 创建AbortController用于取消请求
       abortController = new AbortController()
 
-      // 设置超时取消请求
-      const timeoutId = setTimeout(() => {
-        logger.warn(`⏰ Request timeout after ${config.proxy.fastFailTimeout}ms, aborting...`);
-        if (!abortController.signal.aborted) {
-          abortController.abort('Request timeout after 12 seconds');
-        }
-      }, config.proxy.fastFailTimeout || 12000);
-
       // 设置客户端断开监听器
       const handleClientDisconnect = () => {
         logger.info('🔌 Client disconnected, aborting Claude Console Claude request')
@@ -130,7 +122,7 @@ class ClaudeConsoleRelayService {
           ...filteredHeaders
         },
         httpsAgent: proxyAgent,
-        timeout: config.proxy.fastFailTimeout || 12000, // 使用快速失败超时
+        timeout: config.proxy.timeout || 60000,
         signal: abortController.signal,
         validateStatus: () => true // 接受所有状态码
       }
@@ -219,11 +211,6 @@ class ClaudeConsoleRelayService {
         accountId
       }
     } catch (error) {
-      // 清理超时定时器
-      if (typeof timeoutId !== 'undefined') {
-        clearTimeout(timeoutId);
-      }
-      
       // 处理特定错误
       if (error.name === 'AbortError' || error.code === 'ECONNABORTED') {
         logger.info('Request aborted due to client disconnect')
@@ -354,7 +341,7 @@ class ClaudeConsoleRelayService {
           ...filteredHeaders
         },
         httpsAgent: proxyAgent,
-        timeout: config.proxy.fastFailTimeout || 12000, // 使用快速失败超时
+        timeout: config.proxy.timeout || 60000,
         responseType: 'stream',
         validateStatus: () => true // 接受所有状态码
       }
@@ -448,7 +435,6 @@ class ClaudeConsoleRelayService {
           let buffer = ''
           let finalUsageReported = false
           const collectedUsageData = {}
-          const collectedContent = []
 
           // 处理流数据
           response.data.on('data', (chunk) => {
@@ -682,41 +668,6 @@ class ClaudeConsoleRelayService {
         `⚠️ Failed to update last used time for Claude Console account ${accountId}:`,
         error.message
       )
-    }
-  }
-
-  // ⏱️ 更新账户响应时间
-  async _updateAccountResponseTime(accountId, responseTime) {
-    try {
-      const client = require('../models/redis').getClientSafe();
-      const avgKey = `claude_console_account_avg_response:${accountId}`;
-      
-      // 获取当前平均响应时间和请求计数
-      const currentAvg = await client.get(avgKey) || '0';
-      const countKey = `claude_console_account_count:${accountId}`;
-      const currentCount = parseInt(await client.get(countKey) || '0');
-      
-      // 计算新的平均响应时间（使用滑动平均，最多考虑最近100次请求）
-      const maxSamples = 100;
-      const effectiveCount = Math.min(currentCount, maxSamples - 1);
-      const newAvg = effectiveCount === 0 
-        ? responseTime 
-        : ((parseFloat(currentAvg) * effectiveCount) + responseTime) / (effectiveCount + 1);
-      
-      // 更新Redis中的数据
-      await client.set(avgKey, newAvg.toFixed(2));
-      await client.set(countKey, currentCount + 1);
-      
-      // 同时更新账户记录中的平均响应时间
-      await client.hset(
-        `claude_console_account:${accountId}`,
-        'avgResponseTime',
-        newAvg.toFixed(2)
-      );
-      
-      logger.debug(`📊 Updated response time for account ${accountId}: ${responseTime}ms (avg: ${newAvg.toFixed(2)}ms)`);
-    } catch (error) {
-      logger.warn(`⚠️ Failed to update response time for Claude Console account ${accountId}:`, error.message);
     }
   }
 
