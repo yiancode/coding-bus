@@ -36,12 +36,12 @@
             </router-link>
 
             <!-- 用户登录 -->
-            <router-link
+            <button
               class="text-gray-300 transition-colors duration-200 hover:text-white"
-              to="/user-login"
+              @click="openContactModal"
             >
               登录
-            </router-link>
+            </button>
 
             <!-- 开始使用按钮 -->
             <button class="btn-gradient" @click="openContactModal">开始使用</button>
