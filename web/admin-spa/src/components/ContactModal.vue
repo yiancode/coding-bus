@@ -4,12 +4,12 @@
       <div class="modal-header">
         <h3>联系客服开通服务</h3>
         <button class="close-btn" @click="$emit('close')">
-          <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg fill="none" height="24" stroke="currentColor" viewBox="0 0 24 24" width="24">
             <path
+              d="M6 18L18 6M6 6l12 12"
               stroke-linecap="round"
               stroke-linejoin="round"
               stroke-width="2"
-              d="M6 18L18 6M6 6l12 12"
             />
           </svg>
         </button>
