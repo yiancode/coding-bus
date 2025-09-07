@@ -44,7 +44,7 @@
             </router-link>
 
             <!-- 开始使用按钮 -->
-            <button class="btn-gradient">开始使用</button>
+            <button class="btn-gradient" @click="openContactModal">开始使用</button>
 
             <!-- 移动端汉堡菜单 -->
             <button
@@ -106,7 +106,7 @@
 
           <!-- CTA按钮组 -->
           <div class="flex flex-col justify-center gap-4 sm:flex-row">
-            <button class="btn-primary" @click="handleFreeTrialClick">
+            <button class="btn-primary" @click="openContactModal">
               免费体验 $10
               <i class="fas fa-arrow-right ml-2"></i>
             </button>
@@ -264,10 +264,7 @@
     </section>
 
     <!-- 定价方案部分 -->
-    <section
-      id="pricing"
-      class="relative bg-gradient-to-b from-gray-50 to-white py-20 dark:from-gray-900 dark:to-gray-800"
-    >
+    <section id="pricing" class="relative bg-gradient-to-b from-[#1a1a2e] to-[#16213e] py-20">
       <div class="container mx-auto px-4">
         <div class="mb-16 text-center">
           <h2 class="section-title">选择适合您的方案</h2>
@@ -284,7 +281,7 @@
                 <span class="pricing-amount">20</span>
                 <span class="pricing-period">/每日</span>
               </div>
-              <div class="pricing-price-cny"> ¥140/月</div>
+              <div class="pricing-price-cny">¥140/月</div>
               <div class="pricing-token-desc">$20 Token额度</div>
             </div>
 
@@ -312,7 +309,7 @@
             </div>
 
             <div class="pricing-footer">
-              <button class="pricing-btn pricing-btn-standard" @click="handleSignupClick">
+              <button class="pricing-btn pricing-btn-standard" @click="openContactModal">
                 开始使用
               </button>
             </div>
@@ -328,7 +325,7 @@
                 <span class="pricing-amount">50</span>
                 <span class="pricing-period">/每日</span>
               </div>
-              <div class="pricing-price-cny"> ¥200/月</div>
+              <div class="pricing-price-cny">¥200/月</div>
               <div class="pricing-token-desc">$50 Token额度</div>
             </div>
 
@@ -360,7 +357,7 @@
             </div>
 
             <div class="pricing-footer">
-              <button class="pricing-btn pricing-btn-plus" @click="handleSignupClick">
+              <button class="pricing-btn pricing-btn-plus" @click="openContactModal">
                 立即升级
               </button>
             </div>
@@ -375,7 +372,7 @@
                 <span class="pricing-amount">100</span>
                 <span class="pricing-period">/每日</span>
               </div>
-              <div class="pricing-price-cny"> ¥299/月</div>
+              <div class="pricing-price-cny">¥299/月</div>
               <div class="pricing-token-desc">$100 Token额度</div>
             </div>
 
@@ -411,7 +408,7 @@
             </div>
 
             <div class="pricing-footer">
-              <button class="pricing-btn pricing-btn-pro" @click="handleSignupClick">
+              <button class="pricing-btn pricing-btn-pro" @click="openContactModal">
                 选择Pro版
               </button>
             </div>
@@ -419,23 +416,46 @@
         </div>
 
         <!-- 免费试用提示 -->
-        <div class="mt-16 text-center">
-          <div class="free-trial-banner">
-            <div class="free-trial-content">
-              <h3 class="free-trial-title">🎁 免费试用 & 定制服务</h3>
-              <p class="free-trial-description">
-                新用户免费获得 <span class="highlight">$10</span> 额度！<br />
-                需要更多额度？联系客服微信 <span class="wechat-id">20133213</span> 获取定制方案
-              </p>
-              <div class="flex flex-col justify-center gap-4 sm:flex-row">
-                <button class="free-trial-btn" @click="handleTrialClick">申请免费试用</button>
-                <button class="custom-plan-btn" @click="handleCustomPlanClick">定制更多额度</button>
+        <div class="mt-20 text-center">
+          <div class="mx-auto max-w-4xl">
+            <div class="free-trial-card">
+              <div class="mb-4 flex items-center justify-center gap-2">
+                <div class="free-trial-icon">🎁</div>
+                <h3 class="free-trial-title">免费试用 & 定制服务</h3>
+              </div>
+
+              <div class="grid gap-6 md:grid-cols-2">
+                <!-- 免费试用部分 -->
+                <div class="trial-section">
+                  <div class="trial-amount">$10</div>
+                  <p class="trial-desc">新用户免费额度</p>
+                  <button class="trial-action-btn" @click="openContactModal">
+                    <i class="fas fa-gift mr-2"></i>
+                    立即申请
+                  </button>
+                </div>
+
+                <!-- 定制服务部分 -->
+                <div class="custom-section">
+                  <div class="custom-icon">💬</div>
+                  <p class="custom-desc">需要更多额度？</p>
+                  <p class="custom-contact">
+                    联系客服微信：<span class="wechat-highlight">20133213</span>
+                  </p>
+                  <button class="custom-action-btn" @click="openContactModal">
+                    <i class="fas fa-comments mr-2"></i>
+                    获取定制方案
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
     </section>
+
+    <!-- 联系客服弹窗 -->
+    <ContactModal v-if="showContactModal" @close="closeContactModal" />
   </div>
 </template>
 
@@ -443,9 +463,11 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useThemeStore } from '@/stores/theme'
 import ThemeToggle from '@/components/common/ThemeToggle.vue'
+import ContactModal from '@/components/ContactModal.vue'
 
 const themeStore = useThemeStore()
 const mobileMenuOpen = ref(false)
+const showContactModal = ref(false)
 
 // 打字机效果相关
 const typingText = ref(true)
@@ -492,44 +514,8 @@ const scrollToElement = (elementId) => {
   }
 }
 
-// 处理CTA按钮点击
-const handleFreeTrialClick = () => {
-  // 跳转到用户登录页面
-  window.location.href = '/user-login'
-}
-
 const handlePricingClick = () => {
   scrollToElement('#pricing')
-}
-
-// 处理注册按钮点击
-const handleSignupClick = () => {
-  window.location.href = '/user-login'
-}
-
-// 处理免费试用点击
-const handleTrialClick = () => {
-  // 可以展示微信二维码或复制微信号
-  navigator.clipboard
-    .writeText('20133213')
-    .then(() => {
-      alert('客服微信号已复制：20133213\n请添加微信申请免费试用！')
-    })
-    .catch(() => {
-      alert('客服微信号：20133213\n请手动复制添加微信申请免费试用！')
-    })
-}
-
-// 处理定制方案点击
-const handleCustomPlanClick = () => {
-  navigator.clipboard
-    .writeText('20133213')
-    .then(() => {
-      alert('客服微信号已复制：20133213\n请添加微信获取更多额度定制方案！')
-    })
-    .catch(() => {
-      alert('客服微信号：20133213\n请手动复制添加微信获取更多额度定制方案！')
-    })
 }
 
 // 特性卡片动画
@@ -553,6 +539,16 @@ onMounted(() => {
     startCursorBlink()
   }, 500)
 })
+
+// 打开联系客服弹窗
+const openContactModal = () => {
+  showContactModal.value = true
+}
+
+// 关闭联系客服弹窗
+const closeContactModal = () => {
+  showContactModal.value = false
+}
 
 onUnmounted(() => {
   // 清理定时器
@@ -1112,7 +1108,7 @@ onUnmounted(() => {
 
 /* 定价卡片样式 */
 .pricing-card {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(45, 45, 58, 0.8);
   backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 20px;
@@ -1122,11 +1118,12 @@ onUnmounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
+  color: #ffffff;
 }
 
 .dark .pricing-card {
-  background: rgba(0, 0, 0, 0.2);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(45, 45, 58, 0.9);
+  border-color: rgba(255, 255, 255, 0.15);
 }
 
 .pricing-card:hover {
@@ -1155,17 +1152,17 @@ onUnmounted(() => {
   border-image: linear-gradient(135deg, #9333ea 0%, #ff6b35 100%) 1;
   border-radius: 20px;
   position: relative;
-  background: rgba(147, 51, 234, 0.05);
+  background: rgba(147, 51, 234, 0.15);
 }
 
 .pricing-card-standard,
 .pricing-card-pro {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(45, 45, 58, 0.8);
 }
 
 .dark .pricing-card-standard,
 .dark .pricing-card-pro {
-  background: rgba(0, 0, 0, 0.1);
+  background: rgba(45, 45, 58, 0.9);
 }
 
 .pricing-header {
@@ -1289,80 +1286,139 @@ onUnmounted(() => {
   transform: translateY(-2px);
 }
 
-/* 免费试用横幅 */
-.free-trial-banner {
-  background: linear-gradient(135deg, rgba(147, 51, 234, 0.1) 0%, rgba(255, 107, 53, 0.1) 100%);
-  border: 1px solid rgba(147, 51, 234, 0.3);
+/* 免费试用卡片 */
+.free-trial-card {
+  background: rgba(45, 45, 58, 0.8);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 20px;
-  padding: 2rem;
-  max-width: 600px;
-  margin: 0 auto;
+  padding: 2.5rem;
+  transition: all 0.3s ease;
 }
 
-.free-trial-content {
-  text-align: center;
+.free-trial-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 60px rgba(147, 51, 234, 0.2);
+}
+
+.free-trial-icon {
+  font-size: 2rem;
+  filter: drop-shadow(0 0 10px rgba(147, 51, 234, 0.5));
 }
 
 .free-trial-title {
-  font-size: 1.5rem;
+  font-size: 1.75rem;
   font-weight: 700;
   color: #ffffff;
-  margin-bottom: 1rem;
+  margin: 0;
 }
 
-.free-trial-description {
-  color: #e5e5e5;
+/* 试用部分 */
+.trial-section {
+  background: rgba(34, 197, 94, 0.05);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  border-radius: 16px;
+  padding: 2rem;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.trial-section:hover {
+  border-color: rgba(34, 197, 94, 0.4);
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.trial-amount {
+  font-size: 3rem;
+  font-weight: 800;
+  color: #22c55e;
+  margin-bottom: 0.5rem;
+  text-shadow: 0 0 20px rgba(34, 197, 94, 0.5);
+}
+
+.trial-desc {
+  color: #a1a1aa;
   margin-bottom: 1.5rem;
-  line-height: 1.6;
+  font-size: 1rem;
 }
 
-.highlight {
-  color: #9333ea;
-  font-weight: 700;
-  font-size: 1.125rem;
-}
-
-.wechat-id {
-  color: #ff6b35;
-  font-weight: 700;
-  background: rgba(255, 107, 53, 0.1);
-  padding: 0.25rem 0.5rem;
-  border-radius: 6px;
-}
-
-.free-trial-btn {
+.trial-action-btn {
   background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
   color: white;
-  padding: 1rem 2rem;
+  padding: 0.75rem 1.5rem;
   border-radius: 12px;
   border: none;
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 0.9rem;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 20px rgba(34, 197, 94, 0.4);
+  box-shadow: 0 4px 20px rgba(34, 197, 94, 0.3);
+  width: 100%;
 }
 
-.free-trial-btn:hover {
-  box-shadow: 0 6px 30px rgba(34, 197, 94, 0.6);
+.trial-action-btn:hover {
+  box-shadow: 0 6px 30px rgba(34, 197, 94, 0.5);
   transform: translateY(-2px);
 }
 
-.custom-plan-btn {
+/* 定制部分 */
+.custom-section {
+  background: rgba(147, 51, 234, 0.05);
+  border: 1px solid rgba(147, 51, 234, 0.2);
+  border-radius: 16px;
+  padding: 2rem;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.custom-section:hover {
+  border-color: rgba(147, 51, 234, 0.4);
+  background: rgba(147, 51, 234, 0.1);
+}
+
+.custom-icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.75rem;
+  filter: drop-shadow(0 0 10px rgba(147, 51, 234, 0.5));
+}
+
+.custom-desc {
+  color: #e5e5e5;
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.custom-contact {
+  color: #a1a1aa;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+}
+
+.wechat-highlight {
+  color: #ff6b35;
+  font-weight: 700;
+  background: rgba(255, 107, 53, 0.1);
+  padding: 0.125rem 0.375rem;
+  border-radius: 6px;
+}
+
+.custom-action-btn {
   background: linear-gradient(135deg, #9333ea 0%, #ff6b35 100%);
   color: white;
-  padding: 1rem 2rem;
+  padding: 0.75rem 1.5rem;
   border-radius: 12px;
   border: none;
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 0.9rem;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 20px rgba(147, 51, 234, 0.4);
+  box-shadow: 0 4px 20px rgba(147, 51, 234, 0.3);
+  width: 100%;
 }
 
-.custom-plan-btn:hover {
-  box-shadow: 0 6px 30px rgba(147, 51, 234, 0.6);
+.custom-action-btn:hover {
+  box-shadow: 0 6px 30px rgba(147, 51, 234, 0.5);
   transform: translateY(-2px);
 }
 
