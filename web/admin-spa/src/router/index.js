@@ -4,6 +4,8 @@ import { useUserStore } from '@/stores/user'
 import { APP_CONFIG } from '@/config/app'
 
 // 路由懒加载
+const LandingView = () => import('@/views/LandingView.vue')
+const DocsView = () => import('@/views/DocsView.vue')
 const LoginView = () => import('@/views/LoginView.vue')
 const UserLoginView = () => import('@/views/UserLoginView.vue')
 const UserDashboardView = () => import('@/views/UserDashboardView.vue')
@@ -19,19 +21,9 @@ const ApiStatsView = () => import('@/views/ApiStatsView.vue')
 const routes = [
   {
     path: '/',
-    redirect: () => {
-      // 智能重定向：避免循环
-      const currentPath = window.location.pathname
-      const basePath = APP_CONFIG.basePath.replace(/\/$/, '') // 移除末尾斜杠
-
-      // 如果当前路径已经是 basePath 或 basePath/，重定向到 api-stats
-      if (currentPath === basePath || currentPath === basePath + '/') {
-        return '/api-stats'
-      }
-
-      // 否则保持默认重定向
-      return '/api-stats'
-    }
+    name: 'Landing',
+    component: LandingView,
+    meta: { requiresAuth: false }
   },
   {
     path: '/login',
@@ -54,6 +46,12 @@ const routes = [
     name: 'UserDashboard',
     component: UserDashboardView,
     meta: { requiresUserAuth: true }
+  },
+  {
+    path: '/docs',
+    name: 'Docs',
+    component: DocsView,
+    meta: { requiresAuth: false }
   },
   {
     path: '/api-stats',
@@ -136,7 +134,7 @@ const routes = [
   // 捕获所有未匹配的路由
   {
     path: '/:pathMatch(.*)*',
-    redirect: '/api-stats'
+    redirect: '/'
   }
 ]
 
@@ -187,8 +185,13 @@ router.beforeEach(async (to, from, next) => {
     return next()
   }
 
-  // API Stats 页面不需要认证，直接放行
-  if (to.path === '/api-stats' || to.path.startsWith('/api-stats')) {
+  // 公开页面不需要认证，直接放行
+  if (
+    to.path === '/' ||
+    to.path === '/docs' ||
+    to.path === '/api-stats' ||
+    to.path.startsWith('/api-stats')
+  ) {
     next()
   } else if (to.path === '/user-login') {
     // 如果已经是用户登录状态，重定向到用户仪表板
