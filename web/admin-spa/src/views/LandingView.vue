@@ -262,6 +262,180 @@
         </div>
       </div>
     </section>
+
+    <!-- 定价方案部分 -->
+    <section
+      id="pricing"
+      class="relative bg-gradient-to-b from-gray-50 to-white py-20 dark:from-gray-900 dark:to-gray-800"
+    >
+      <div class="container mx-auto px-4">
+        <div class="mb-16 text-center">
+          <h2 class="section-title">选择适合您的方案</h2>
+          <p class="section-subtitle mt-4">灵活的定价选择，满足不同开发需求</p>
+        </div>
+
+        <div class="mx-auto grid max-w-6xl gap-8 md:grid-cols-3">
+          <!-- 标准版 -->
+          <div class="pricing-card pricing-card-standard">
+            <div class="pricing-header">
+              <h3 class="pricing-title">标准版</h3>
+              <div class="pricing-price">
+                <span class="pricing-currency">$</span>
+                <span class="pricing-amount">20</span>
+                <span class="pricing-period">/每日</span>
+              </div>
+              <div class="pricing-price-cny">≈ ¥140/月</div>
+              <div class="pricing-token-desc">$20 Token额度</div>
+            </div>
+
+            <div class="pricing-features">
+              <div class="pricing-feature">
+                <i class="fas fa-check pricing-check"></i>
+                <span>$20 Token额度/每日</span>
+              </div>
+              <div class="pricing-feature">
+                <i class="fas fa-check pricing-check"></i>
+                <span>Claude 4.0 Sonnet 支持</span>
+              </div>
+              <div class="pricing-feature">
+                <i class="fas fa-check pricing-check"></i>
+                <span>智能负载均衡</span>
+              </div>
+              <div class="pricing-feature">
+                <i class="fas fa-check pricing-check"></i>
+                <span>99.9% 服务可用性</span>
+              </div>
+              <div class="pricing-feature">
+                <i class="fas fa-check pricing-check"></i>
+                <span>24/7 技术支持</span>
+              </div>
+            </div>
+
+            <div class="pricing-footer">
+              <button class="pricing-btn pricing-btn-standard" @click="handleSignupClick">
+                开始使用
+              </button>
+            </div>
+          </div>
+
+          <!-- Plus版（推荐） -->
+          <div class="pricing-card pricing-card-plus">
+            <div class="pricing-badge">推荐</div>
+            <div class="pricing-header">
+              <h3 class="pricing-title">Plus版</h3>
+              <div class="pricing-price">
+                <span class="pricing-currency">$</span>
+                <span class="pricing-amount">50</span>
+                <span class="pricing-period">/每日</span>
+              </div>
+              <div class="pricing-price-cny">≈ ¥350/月</div>
+              <div class="pricing-token-desc">$50 Token额度</div>
+            </div>
+
+            <div class="pricing-features">
+              <div class="pricing-feature">
+                <i class="fas fa-check pricing-check"></i>
+                <span>$50 Token额度/每日</span>
+              </div>
+              <div class="pricing-feature">
+                <i class="fas fa-check pricing-check"></i>
+                <span>Claude 4.0 Sonnet 支持</span>
+              </div>
+              <div class="pricing-feature">
+                <i class="fas fa-check pricing-check"></i>
+                <span>智能负载均衡</span>
+              </div>
+              <div class="pricing-feature">
+                <i class="fas fa-check pricing-check"></i>
+                <span>99.99% 服务可用性</span>
+              </div>
+              <div class="pricing-feature">
+                <i class="fas fa-check pricing-check"></i>
+                <span>优先技术支持</span>
+              </div>
+              <div class="pricing-feature">
+                <i class="fas fa-check pricing-check"></i>
+                <span>专属账户池</span>
+              </div>
+            </div>
+
+            <div class="pricing-footer">
+              <button class="pricing-btn pricing-btn-plus" @click="handleSignupClick">
+                立即升级
+              </button>
+            </div>
+          </div>
+
+          <!-- Pro版 -->
+          <div class="pricing-card pricing-card-pro">
+            <div class="pricing-header">
+              <h3 class="pricing-title">Pro版</h3>
+              <div class="pricing-price">
+                <span class="pricing-currency">$</span>
+                <span class="pricing-amount">100</span>
+                <span class="pricing-period">/每日</span>
+              </div>
+              <div class="pricing-price-cny">≈ ¥700/月</div>
+              <div class="pricing-token-desc">$100 Token额度</div>
+            </div>
+
+            <div class="pricing-features">
+              <div class="pricing-feature">
+                <i class="fas fa-check pricing-check"></i>
+                <span>$100 Token额度/每日</span>
+              </div>
+              <div class="pricing-feature">
+                <i class="fas fa-check pricing-check"></i>
+                <span>Claude 4.0 Sonnet 支持</span>
+              </div>
+              <div class="pricing-feature">
+                <i class="fas fa-check pricing-check"></i>
+                <span>智能负载均衡</span>
+              </div>
+              <div class="pricing-feature">
+                <i class="fas fa-check pricing-check"></i>
+                <span>99.99% SLA保障</span>
+              </div>
+              <div class="pricing-feature">
+                <i class="fas fa-check pricing-check"></i>
+                <span>1对1专家支持</span>
+              </div>
+              <div class="pricing-feature">
+                <i class="fas fa-check pricing-check"></i>
+                <span>独享账户资源</span>
+              </div>
+              <div class="pricing-feature">
+                <i class="fas fa-check pricing-check"></i>
+                <span>API优先级支持</span>
+              </div>
+            </div>
+
+            <div class="pricing-footer">
+              <button class="pricing-btn pricing-btn-pro" @click="handleSignupClick">
+                选择Pro版
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 免费试用提示 -->
+        <div class="mt-16 text-center">
+          <div class="free-trial-banner">
+            <div class="free-trial-content">
+              <h3 class="free-trial-title">🎁 免费试用 & 定制服务</h3>
+              <p class="free-trial-description">
+                新用户免费获得 <span class="highlight">$10</span> 额度！<br />
+                需要更多额度？联系客服微信 <span class="wechat-id">20133213</span> 获取定制方案
+              </p>
+              <div class="flex flex-col justify-center gap-4 sm:flex-row">
+                <button class="free-trial-btn" @click="handleTrialClick">申请免费试用</button>
+                <button class="custom-plan-btn" @click="handleCustomPlanClick">定制更多额度</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -326,6 +500,36 @@ const handleFreeTrialClick = () => {
 
 const handlePricingClick = () => {
   scrollToElement('#pricing')
+}
+
+// 处理注册按钮点击
+const handleSignupClick = () => {
+  window.location.href = '/user-login'
+}
+
+// 处理免费试用点击
+const handleTrialClick = () => {
+  // 可以展示微信二维码或复制微信号
+  navigator.clipboard
+    .writeText('20133213')
+    .then(() => {
+      alert('客服微信号已复制：20133213\n请添加微信申请免费试用！')
+    })
+    .catch(() => {
+      alert('客服微信号：20133213\n请手动复制添加微信申请免费试用！')
+    })
+}
+
+// 处理定制方案点击
+const handleCustomPlanClick = () => {
+  navigator.clipboard
+    .writeText('20133213')
+    .then(() => {
+      alert('客服微信号已复制：20133213\n请添加微信获取更多额度定制方案！')
+    })
+    .catch(() => {
+      alert('客服微信号：20133213\n请手动复制添加微信获取更多额度定制方案！')
+    })
 }
 
 // 特性卡片动画
@@ -904,5 +1108,276 @@ onUnmounted(() => {
 }
 .feature-card:nth-child(6) {
   animation-delay: 0.6s;
+}
+
+/* 定价卡片样式 */
+.pricing-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 2rem;
+  position: relative;
+  transition: all 0.3s ease;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.dark .pricing-card {
+  background: rgba(0, 0, 0, 0.2);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.pricing-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 60px rgba(147, 51, 234, 0.3);
+}
+
+/* 推荐标签 */
+.pricing-badge {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #9333ea 0%, #ff6b35 100%);
+  color: white;
+  padding: 0.5rem 1.5rem;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  box-shadow: 0 4px 20px rgba(147, 51, 234, 0.4);
+}
+
+/* Plus版特殊样式 */
+.pricing-card-plus {
+  border: 2px solid;
+  border-image: linear-gradient(135deg, #9333ea 0%, #ff6b35 100%) 1;
+  border-radius: 20px;
+  position: relative;
+  background: rgba(147, 51, 234, 0.05);
+}
+
+.pricing-card-standard,
+.pricing-card-pro {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.dark .pricing-card-standard,
+.dark .pricing-card-pro {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.pricing-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.pricing-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 1rem;
+}
+
+.dark .pricing-title {
+  color: #ffffff;
+}
+
+.pricing-price {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  margin-bottom: 0.5rem;
+}
+
+.pricing-currency {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #9333ea;
+}
+
+.pricing-amount {
+  font-size: 3rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0 0.25rem;
+}
+
+.pricing-period {
+  font-size: 1.125rem;
+  color: #a1a1aa;
+}
+
+.pricing-price-cny {
+  font-size: 1rem;
+  color: #a1a1aa;
+  text-align: center;
+}
+
+.pricing-token-desc {
+  font-size: 0.875rem;
+  color: #9333ea;
+  text-align: center;
+  font-weight: 600;
+  margin-top: 0.25rem;
+}
+
+.pricing-features {
+  flex: 1;
+  margin-bottom: 2rem;
+}
+
+.pricing-feature {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1rem;
+  color: #e5e5e5;
+}
+
+.pricing-check {
+  color: #22c55e;
+  margin-right: 0.75rem;
+  font-size: 1rem;
+}
+
+.pricing-footer {
+  text-align: center;
+}
+
+.pricing-btn {
+  width: 100%;
+  padding: 1rem 2rem;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  border: none;
+  cursor: pointer;
+}
+
+.pricing-btn-standard {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.pricing-btn-standard:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.pricing-btn-plus {
+  background: linear-gradient(135deg, #9333ea 0%, #ff6b35 100%);
+  color: white;
+  box-shadow: 0 4px 20px rgba(147, 51, 234, 0.4);
+}
+
+.pricing-btn-plus:hover {
+  box-shadow: 0 6px 30px rgba(147, 51, 234, 0.6);
+  transform: translateY(-2px);
+}
+
+.pricing-btn-pro {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.pricing-btn-pro:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+/* 免费试用横幅 */
+.free-trial-banner {
+  background: linear-gradient(135deg, rgba(147, 51, 234, 0.1) 0%, rgba(255, 107, 53, 0.1) 100%);
+  border: 1px solid rgba(147, 51, 234, 0.3);
+  border-radius: 20px;
+  padding: 2rem;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.free-trial-content {
+  text-align: center;
+}
+
+.free-trial-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 1rem;
+}
+
+.free-trial-description {
+  color: #e5e5e5;
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+.highlight {
+  color: #9333ea;
+  font-weight: 700;
+  font-size: 1.125rem;
+}
+
+.wechat-id {
+  color: #ff6b35;
+  font-weight: 700;
+  background: rgba(255, 107, 53, 0.1);
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+}
+
+.free-trial-btn {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: white;
+  padding: 1rem 2rem;
+  border-radius: 12px;
+  border: none;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(34, 197, 94, 0.4);
+}
+
+.free-trial-btn:hover {
+  box-shadow: 0 6px 30px rgba(34, 197, 94, 0.6);
+  transform: translateY(-2px);
+}
+
+.custom-plan-btn {
+  background: linear-gradient(135deg, #9333ea 0%, #ff6b35 100%);
+  color: white;
+  padding: 1rem 2rem;
+  border-radius: 12px;
+  border: none;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(147, 51, 234, 0.4);
+}
+
+.custom-plan-btn:hover {
+  box-shadow: 0 6px 30px rgba(147, 51, 234, 0.6);
+  transform: translateY(-2px);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .pricing-card {
+    padding: 1.5rem;
+  }
+
+  .pricing-amount {
+    font-size: 2.5rem;
+  }
+
+  .free-trial-banner {
+    padding: 1.5rem;
+  }
 }
 </style>
