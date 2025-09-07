@@ -284,7 +284,7 @@
                 <span class="pricing-amount">20</span>
                 <span class="pricing-period">/每日</span>
               </div>
-              <div class="pricing-price-cny">≈ ¥140/月</div>
+              <div class="pricing-price-cny"> ¥140/月</div>
               <div class="pricing-token-desc">$20 Token额度</div>
             </div>
 
@@ -328,7 +328,7 @@
                 <span class="pricing-amount">50</span>
                 <span class="pricing-period">/每日</span>
               </div>
-              <div class="pricing-price-cny">≈ ¥350/月</div>
+              <div class="pricing-price-cny"> ¥200/月</div>
               <div class="pricing-token-desc">$50 Token额度</div>
             </div>
 
@@ -375,7 +375,7 @@
                 <span class="pricing-amount">100</span>
                 <span class="pricing-period">/每日</span>
               </div>
-              <div class="pricing-price-cny">≈ ¥700/月</div>
+              <div class="pricing-price-cny"> ¥299/月</div>
               <div class="pricing-token-desc">$100 Token额度</div>
             </div>
 
