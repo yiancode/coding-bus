@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user'
+import { useClerkStore } from '@/stores/clerk'
 import { APP_CONFIG } from '@/config/app'
 
 // 路由懒加载
@@ -8,6 +9,8 @@ const LandingView = () => import('@/views/LandingView.vue')
 const DocsView = () => import('@/views/DocsView.vue')
 const LoginView = () => import('@/views/LoginView.vue')
 const UserLoginView = () => import('@/views/UserLoginView.vue')
+const UserLoginSocialView = () => import('@/views/UserLoginSocialView.vue')
+const SSOCallbackView = () => import('@/views/SSOCallbackView.vue')
 const UserDashboardView = () => import('@/views/UserDashboardView.vue')
 const UserManagementView = () => import('@/views/UserManagementView.vue')
 const MainLayout = () => import('@/components/layout/MainLayout.vue')
@@ -40,6 +43,18 @@ const routes = [
     name: 'UserLogin',
     component: UserLoginView,
     meta: { requiresAuth: false, userAuth: true }
+  },
+  {
+    path: '/user-login-social',
+    name: 'UserLoginSocial',
+    component: UserLoginSocialView,
+    meta: { requiresAuth: false, clerkAuth: true }
+  },
+  {
+    path: '/sso-callback',
+    name: 'SSOCallback',
+    component: SSOCallbackView,
+    meta: { requiresAuth: false, ssoCallback: true }
   },
   {
     path: '/user-dashboard',
@@ -143,10 +158,11 @@ const router = createRouter({
   routes
 })
 
-// 路由守卫
+// 路由守卫（扩展支持 Clerk 认证）
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
   const userStore = useUserStore()
+  const clerkStore = useClerkStore()
 
   console.log('路由导航:', {
     to: to.path,
@@ -154,12 +170,21 @@ router.beforeEach(async (to, from, next) => {
     fullPath: to.fullPath,
     requiresAuth: to.meta.requiresAuth,
     requiresUserAuth: to.meta.requiresUserAuth,
+    clerkAuth: to.meta.clerkAuth,
+    ssoCallback: to.meta.ssoCallback,
     isAuthenticated: authStore.isAuthenticated,
-    isUserAuthenticated: userStore.isAuthenticated
+    isUserAuthenticated: userStore.isAuthenticated,
+    isClerkAuthenticated: clerkStore.isAuthenticated
   })
 
   // 防止重定向循环：如果已经在目标路径，直接放行
   if (to.path === from.path && to.fullPath === from.fullPath) {
+    return next()
+  }
+
+  // 处理 SSO 回调页面
+  if (to.meta.ssoCallback) {
+    // SSO 回调页面无需认证检查，直接放行
     return next()
   }
 
@@ -199,6 +224,19 @@ router.beforeEach(async (to, from, next) => {
       next('/user-dashboard')
     } else {
       next()
+    }
+  } else if (to.path === '/user-login-social') {
+    // 如果已经是用户登录状态，重定向到用户仪表板
+    if (userStore.isAuthenticated) {
+      next('/user-dashboard')
+    } else {
+      // Clerk 社交登录页面，检查 Clerk 是否已初始化
+      if (!clerkStore.isClerkReady && !clerkStore.isClerkLoading) {
+        console.warn('Clerk 尚未初始化，重定向到传统登录页面')
+        next('/user-login')
+      } else {
+        next()
+      }
     }
   } else if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next('/login')

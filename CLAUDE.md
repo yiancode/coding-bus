@@ -42,6 +42,30 @@ Claude Relay Service 是一个功能完整的 AI API 中转服务，支持 Claud
 - **代理支持**: OAuth授权和token交换全程支持代理配置
 - **安全存储**: claudeAiOauth数据加密存储，包含accessToken、refreshToken、scopes
 
+### 多服务架构核心
+
+该服务支持多个AI提供商，每个都有独立的服务层：
+
+- **Claude服务链**:
+  - `claudeAccountService.js`: OAuth账户管理和token刷新
+  - `claudeRelayService.js`: 请求转发和流式响应处理  
+  - `unifiedClaudeScheduler.js`: 账户调度和负载均衡
+
+- **Gemini服务链**:
+  - `geminiAccountService.js`: Google OAuth管理
+  - `geminiRelayService.js`: Gemini API请求转发
+  - `unifiedGeminiScheduler.js`: Gemini账户调度
+
+- **OpenAI兼容层**:
+  - `openaiToClaude.js`: OpenAI格式到Claude格式的转换
+  - `openaiAccountService.js`: OpenAI账户管理
+  - 支持多种OpenAI兼容端点
+
+- **统一认证层**:
+  - `apiKeyService.js`: API Key验证、限流、使用统计
+  - `middleware/auth.js`: 请求认证中间件
+  - 支持客户端限制和速率控制
+
 ## 常用命令
 
 ### 基本开发命令
@@ -56,17 +80,51 @@ npm run install:web           # 安装Web界面依赖
 npm run dev                   # 开发模式（热重载）
 npm start                     # 生产模式
 npm test                      # 运行测试
-npm run lint                  # 代码检查
+npm run lint                  # 代码检查和自动修复
+npm run lint:check            # 代码检查（不自动修复）
+npm run format                # Prettier格式化所有文件
+npm run format:check          # 检查格式但不修复
+
+# Web界面开发
+cd web/admin-spa
+npm run dev                   # 前端开发服务器
+npm run build                 # 构建前端
+npm run lint                  # 前端代码检查
 
 # Docker部署
 docker-compose up -d          # 推荐方式
 docker-compose --profile monitoring up -d  # 包含监控
+npm run docker:build         # 构建Docker镜像
+npm run docker:up            # 启动Docker容器
+npm run docker:down          # 停止Docker容器
 
 # 服务管理
 npm run service:start:daemon  # 后台启动（推荐）
+npm run service:start         # 前台启动
 npm run service:status        # 查看服务状态
 npm run service:logs          # 查看日志
+npm run service:logs:follow   # 实时跟踪日志
 npm run service:stop          # 停止服务
+npm run service:restart       # 重启服务
+npm run service:restart:daemon # 后台重启
+
+# 数据管理和迁移
+npm run data:export           # 导出数据
+npm run data:import           # 导入数据
+npm run data:export:sanitized # 导出脱敏数据
+npm run data:debug            # 调试Redis键
+npm run migrate:apikey-expiry # 迁移API Key过期时间
+npm run migrate:apikey-expiry:dry # 迁移预演（不实际执行）
+
+# 价格和成本管理
+npm run update:pricing        # 更新模型价格数据
+npm run init:costs            # 初始化成本数据
+npm run test:pricing-fallback # 测试价格回退机制
+
+# 系统监控和状态
+npm run monitor               # 增强监控脚本
+npm run status                # 统一状态检查
+npm run status:detail         # 详细状态信息
 
 ### 开发环境配置
 必须配置的环境变量：
@@ -103,24 +161,44 @@ npm run setup  # 自动生成密钥并创建管理员账户
 
 ## 重要端点
 
-### API转发端点
+### API转发端点（主要客户端接口）
 
-- `POST /api/v1/messages` - 主要消息处理端点（支持流式）
+- `POST /api/v1/messages` - Claude API消息处理（支持流式）
 - `GET /api/v1/models` - 模型列表（兼容性）
 - `GET /api/v1/usage` - 使用统计查询
 - `GET /api/v1/key-info` - API Key信息
+
+### 多服务端点（不同AI服务）
+
+- `POST /claude/*` - Claude服务端点
+- `POST /gemini/*` - Gemini服务端点  
+- `POST /openai/*` - OpenAI兼容端点
+- `POST /openai-gemini/*` - OpenAI格式转发到Gemini
+- `POST /openai-claude/*` - OpenAI格式转发到Claude
+- `POST /azure-openai/*` - Azure OpenAI端点
 
 ### OAuth管理端点
 
 - `POST /admin/claude-accounts/generate-auth-url` - 生成OAuth授权URL（含代理）
 - `POST /admin/claude-accounts/exchange-code` - 交换authorization code
 - `POST /admin/claude-accounts` - 创建OAuth账户
+- `GET /admin/claude-accounts` - 获取Claude账户列表
+- `POST /admin/gemini-accounts` - 管理Gemini账户
 
-### 系统端点
+### 系统和管理端点
 
 - `GET /health` - 健康检查
 - `GET /web` - Web管理界面
 - `GET /admin/dashboard` - 系统概览数据
+- `GET /admin/api-keys` - API Key管理
+- `POST /admin/api-keys` - 创建新API Key
+- `GET /admin/logs` - 实时日志查看
+- `GET /api/stats/*` - 统计数据端点
+
+### Webhook端点
+
+- `POST /webhook/*` - Webhook配置和触发端点
+- 支持自定义Webhook配置和事件通知
 
 ## 故障排除
 
@@ -146,9 +224,21 @@ npm run setup  # 自动生成密钥并创建管理员账户
 ### 调试工具
 
 - **日志系统**: Winston结构化日志，支持不同级别
+  - 日志文件位置：`logs/` 目录
+  - 实时查看日志：`tail -f logs/claude-relay-combined.log`
+  - 错误日志：`logs/claude-relay-error.log`
+  - Token刷新错误：`logs/token-refresh-error.log`
 - **CLI工具**: 命令行状态查看和管理
+  - 基本用法：`npm run cli` 查看可用命令
+  - 状态检查：`npm run cli status`
+  - API Key管理：`npm run cli keys list`
+  - 账户管理：`npm run cli accounts list`
 - **Web界面**: 实时日志查看和系统监控
-- **健康检查**: /health端点提供系统状态
+  - 访问：`http://localhost:3000/web`
+  - 实时日志页面查看最新日志条目
+- **健康检查**: `/health` 端点提供系统状态
+- **测试脚本**: 专用测试脚本用于特定功能验证
+  - Gemini刷新测试：`node scripts/test-gemini-refresh.js`
 
 ## 开发最佳实践
 
@@ -182,18 +272,65 @@ npm run setup  # 自动生成密钥并创建管理员账户
 
 ### 测试和质量保证
 
-- 运行 `npm run lint` 进行代码风格检查（使用 ESLint）
-- 运行 `npm test` 执行测试套件（Jest + SuperTest 配置）
-- 在修改核心服务后，使用 CLI 工具验证功能：`npm run cli status`
-- 检查日志文件 `logs/claude-relay-*.log` 确认服务正常运行
-- 注意：当前项目缺少实际测试文件，建议补充单元测试和集成测试
+- **代码质量检查**:
+  - 运行 `npm run lint` 进行代码风格检查（使用 ESLint）
+  - 运行 `npm run format:check` 检查代码格式
+  - 运行 `npm run format` 自动格式化所有文件
+
+- **测试执行**:
+  - 运行 `npm test` 执行测试套件（Jest + SuperTest 配置）
+  - 注意：当前项目缺少实际测试文件，建议补充单元测试和集成测试
+  - 前端测试：在 `web/admin-spa/` 目录下运行前端测试
+
+- **功能验证**:
+  - 在修改核心服务后，使用 CLI 工具验证功能：`npm run cli status`
+  - 检查日志文件 `logs/claude-relay-*.log` 确认服务正常运行
+  - 使用 `/health` 端点验证服务健康状态
+  - 测试API端点：`curl http://localhost:3000/health`
+
+- **开发前检查清单**:
+  1. 确保Redis服务运行：`redis-cli ping` 应返回 "PONG"
+  2. 检查环境变量配置：`.env` 文件包含必需的密钥
+  3. 验证配置文件：`config/config.js` 配置正确
+  4. 初始化数据：运行 `npm run setup` 如果是首次设置
 
 ### 开发工作流
 
 - **功能开发**: 始终从理解现有代码开始，重用已有的服务和模式
-- **调试流程**: 使用 Winston 日志 + Web 界面实时日志查看 + CLI 状态工具
+- **调试流程**: 
+  - 使用 Winston 日志系统（`logs/` 目录）
+  - Web 界面实时日志查看（`/admin/logs`）
+  - CLI 状态工具（`npm run cli status`）
+  - 实时日志跟踪：`npm run service:logs:follow`
+- **请求调试**:
+  - 查看请求流：检查 `authenticateApiKey` 中间件日志
+  - 账户选择：查看 `unifiedClaudeScheduler` 或对应调度器日志
+  - 代理配置：检查 `ProxyHelper` 相关日志
+  - Token刷新：查看 `tokenRefreshService` 和专用错误日志
+- **性能调试**:
+  - Redis性能：使用 `redis-cli monitor` 监控Redis操作
+  - 连接池状态：检查 `cacheMonitor` 工具输出
+  - 内存使用：`npm run monitor` 脚本
 - **代码审查**: 关注安全性（加密存储）、性能（异步处理）、错误处理
 - **部署前检查**: 运行 lint → 测试 CLI 功能 → 检查日志 → Docker 构建
+
+### 常见开发任务
+
+- **添加新的AI服务支持**:
+  1. 创建 `{service}AccountService.js` 和 `{service}RelayService.js`
+  2. 实现统一调度器 `unified{Service}Scheduler.js`
+  3. 添加路由到 `src/routes/{service}Routes.js`
+  4. 更新 `src/app.js` 中的路由注册
+
+- **修改认证逻辑**:
+  1. 检查 `src/middleware/auth.js` 中的 `authenticateApiKey`
+  2. 修改 `src/services/apiKeyService.js` 相关验证逻辑
+  3. 测试不同API Key格式和限流功能
+
+- **调整代理配置**:
+  1. 修改 `src/utils/proxyHelper.js`
+  2. 检查各服务中的代理使用（如 `claudeRelayService.js`）
+  3. 测试SOCKS5和HTTP代理支持
 
 ### 常见文件位置
 

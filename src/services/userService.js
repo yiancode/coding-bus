@@ -353,8 +353,30 @@ class UserService {
     }
   }
 
-  // 🎫 验证用户会话
+  // 🎫 验证用户会话（支持 Redis 会话和 JWT Token）
   async validateUserSession(sessionToken) {
+    try {
+      // 首先尝试传统的 Redis 会话验证
+      const redisValidation = await this.validateRedisSession(sessionToken)
+      if (redisValidation) {
+        return redisValidation
+      }
+
+      // 如果 Redis 会话验证失败，尝试 JWT Token 验证（Clerk 用户）
+      const jwtValidation = await this.validateJwtSession(sessionToken)
+      if (jwtValidation) {
+        return jwtValidation
+      }
+
+      return null
+    } catch (error) {
+      logger.error('❌ Error validating user session:', error)
+      return null
+    }
+  }
+
+  // 🎫 验证 Redis 会话（传统 LDAP 用户）
+  async validateRedisSession(sessionToken) {
     try {
       const sessionData = await redis.get(`${this.userSessionPrefix}${sessionToken}`)
       if (!sessionData) {
@@ -378,7 +400,59 @@ class UserService {
 
       return { session, user }
     } catch (error) {
-      logger.error('❌ Error validating user session:', error)
+      logger.debug('Redis session validation failed:', error.message)
+      return null
+    }
+  }
+
+  // 🎫 验证 JWT 会话（Clerk 用户）
+  async validateJwtSession(sessionToken) {
+    try {
+      // 检查是否是 JWT 格式（简单检查：包含两个点）
+      if (!sessionToken.includes('.') || sessionToken.split('.').length !== 3) {
+        return null
+      }
+
+      const jwt = require('jsonwebtoken')
+      const jwtSecret = config.auth?.jwtSecret || process.env.JWT_SECRET
+
+      if (!jwtSecret) {
+        logger.warn('JWT secret not configured, cannot validate JWT sessions')
+        return null
+      }
+
+      // 验证 JWT token
+      const payload = jwt.verify(sessionToken, jwtSecret)
+
+      // 检查 token 是否过期
+      if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+        return null
+      }
+
+      // 获取用户信息
+      const user = await this.getUserById(payload.userId, false)
+      if (!user || !user.isActive) {
+        return null
+      }
+
+      // 验证用户提供商是否匹配（安全检查）
+      if (payload.provider && user.provider !== payload.provider) {
+        logger.warn(`Provider mismatch in JWT: token=${payload.provider}, user=${user.provider}`)
+        return null
+      }
+
+      // 构造会话信息
+      const session = {
+        userId: user.id,
+        provider: user.provider || 'clerk',
+        createdAt: new Date(payload.iat * 1000).toISOString(),
+        expiresAt: new Date(payload.exp * 1000).toISOString(),
+        tokenType: 'jwt'
+      }
+
+      return { session, user }
+    } catch (error) {
+      logger.debug('JWT session validation failed:', error.message)
       return null
     }
   }
@@ -513,6 +587,267 @@ class UserService {
       logger.error('❌ Error getting user stats:', error)
       throw error
     }
+  }
+
+  // ========== Clerk 用户管理方法 ==========
+
+  // 👤 通过 Clerk ID 获取用户
+  async getUserByClerkId(clerkUserId) {
+    try {
+      if (!clerkUserId) {
+        return null
+      }
+
+      // 搜索所有用户找到匹配的 Clerk ID
+      const client = redis.getClientSafe()
+      const pattern = `${this.userPrefix}*`
+      const keys = await client.keys(pattern)
+
+      for (const key of keys) {
+        const userData = await client.get(key)
+        if (userData) {
+          const user = JSON.parse(userData)
+          if (user.clerkUserId === clerkUserId) {
+            return user
+          }
+        }
+      }
+
+      return null
+    } catch (error) {
+      logger.error('❌ Error getting user by Clerk ID:', error)
+      throw error
+    }
+  }
+
+  // 👤 通过邮箱获取用户
+  async getUserByEmail(email) {
+    try {
+      if (!email) {
+        return null
+      }
+
+      const normalizedEmail = email.toLowerCase().trim()
+
+      // 搜索所有用户找到匹配的邮箱
+      const client = redis.getClientSafe()
+      const pattern = `${this.userPrefix}*`
+      const keys = await client.keys(pattern)
+
+      for (const key of keys) {
+        const userData = await client.get(key)
+        if (userData) {
+          const user = JSON.parse(userData)
+          if (user.email && user.email.toLowerCase().trim() === normalizedEmail) {
+            return user
+          }
+        }
+      }
+
+      return null
+    } catch (error) {
+      logger.error('❌ Error getting user by email:', error)
+      throw error
+    }
+  }
+
+  // 👤 创建 Clerk 用户
+  async createClerkUser(clerkUserData) {
+    try {
+      const {
+        username,
+        email,
+        firstName,
+        lastName,
+        displayName,
+        avatar,
+        role = 'user',
+        provider = 'clerk',
+        clerkUserId,
+        isActive = true
+      } = clerkUserData
+
+      // 验证必需字段
+      if (!username || !email || !clerkUserId) {
+        throw new Error('用户名、邮箱和 Clerk ID 是必需的')
+      }
+
+      // 检查用户名是否已存在
+      const existingUser = await this.getUserByUsername(username)
+      if (existingUser) {
+        throw new Error(`用户名 ${username} 已存在`)
+      }
+
+      // 检查邮箱是否已存在
+      const existingEmailUser = await this.getUserByEmail(email)
+      if (existingEmailUser) {
+        throw new Error(`邮箱 ${email} 已被使用`)
+      }
+
+      // 检查 Clerk ID 是否已存在
+      const existingClerkUser = await this.getUserByClerkId(clerkUserId)
+      if (existingClerkUser) {
+        throw new Error(`Clerk 用户 ${clerkUserId} 已存在`)
+      }
+
+      const userId = this.generateUserId()
+      const now = new Date().toISOString()
+
+      const user = {
+        id: userId,
+        username: username.toLowerCase(),
+        email: email.toLowerCase(),
+        displayName: displayName || `${firstName} ${lastName}`.trim() || username,
+        firstName: firstName || '',
+        lastName: lastName || '',
+        avatar: avatar || null,
+        role,
+        provider,
+        clerkUserId,
+        isActive,
+        createdAt: now,
+        updatedAt: now,
+        lastLoginAt: now,
+        apiKeyCount: 0,
+        totalUsage: {
+          requests: 0,
+          inputTokens: 0,
+          outputTokens: 0,
+          totalCost: 0
+        }
+      }
+
+      // 保存用户信息
+      await redis.set(`${this.userPrefix}${user.id}`, JSON.stringify(user))
+      await redis.set(`${this.usernamePrefix}${username.toLowerCase()}`, user.id)
+
+      // 尝试转移匹配的API Keys
+      await this.transferMatchingApiKeys(user)
+
+      logger.info(`✨ Created Clerk user: ${username} (${user.id}) - ${email}`)
+      return user
+    } catch (error) {
+      logger.error('❌ Error creating Clerk user:', error)
+      throw error
+    }
+  }
+
+  // 🔄 更新用户信息（支持 Clerk 用户）
+  async updateUser(userId, updateData) {
+    try {
+      const user = await this.getUserById(userId, false) // 不计算使用统计
+      if (!user) {
+        throw new Error('用户不存在')
+      }
+
+      // 准备更新的字段
+      const updatedUser = {
+        ...user,
+        updatedAt: new Date().toISOString()
+      }
+
+      // 只更新提供的字段
+      const allowedFields = [
+        'displayName', 'firstName', 'lastName', 'avatar',
+        'role', 'isActive', 'lastLoginAt', 'email'
+      ]
+
+      for (const field of allowedFields) {
+        if (updateData.hasOwnProperty(field)) {
+          updatedUser[field] = updateData[field]
+        }
+      }
+
+      // 特殊处理：如果更新邮箱，需要检查重复
+      if (updateData.email && updateData.email !== user.email) {
+        const existingEmailUser = await this.getUserByEmail(updateData.email)
+        if (existingEmailUser && existingEmailUser.id !== userId) {
+          throw new Error(`邮箱 ${updateData.email} 已被其他用户使用`)
+        }
+        updatedUser.email = updateData.email.toLowerCase()
+      }
+
+      // 保存更新后的用户信息
+      await redis.set(`${this.userPrefix}${userId}`, JSON.stringify(updatedUser))
+
+      logger.info(`🔄 Updated user: ${updatedUser.username} (${userId})`)
+      return updatedUser
+    } catch (error) {
+      logger.error('❌ Error updating user:', error)
+      throw error
+    }
+  }
+
+  // 📊 获取 Clerk 用户统计信息
+  async getClerkUserStats() {
+    try {
+      const client = redis.getClientSafe()
+      const pattern = `${this.userPrefix}*`
+      const keys = await client.keys(pattern)
+
+      const stats = {
+        totalClerkUsers: 0,
+        activeClerkUsers: 0,
+        clerkUsersByProvider: {},
+        clerkUsersCreatedToday: 0,
+        clerkUsersCreatedThisWeek: 0
+      }
+
+      const now = new Date()
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+
+      for (const key of keys) {
+        const userData = await client.get(key)
+        if (userData) {
+          const user = JSON.parse(userData)
+          
+          // 只统计 Clerk 用户
+          if (user.provider === 'clerk') {
+            stats.totalClerkUsers++
+
+            if (user.isActive) {
+              stats.activeClerkUsers++
+            }
+
+            // 按 OAuth 提供商分类（从 clerkUserId 或其他字段推断）
+            const oauthProvider = this.extractOAuthProvider(user)
+            if (oauthProvider) {
+              stats.clerkUsersByProvider[oauthProvider] = (stats.clerkUsersByProvider[oauthProvider] || 0) + 1
+            }
+
+            // 统计最近创建的用户
+            if (user.createdAt) {
+              const createdAt = new Date(user.createdAt)
+              
+              if (createdAt >= today) {
+                stats.clerkUsersCreatedToday++
+              }
+              
+              if (createdAt >= weekAgo) {
+                stats.clerkUsersCreatedThisWeek++
+              }
+            }
+          }
+        }
+      }
+
+      return stats
+    } catch (error) {
+      logger.error('❌ Error getting Clerk user stats:', error)
+      throw error
+    }
+  }
+
+  // 🔍 从用户数据中提取 OAuth 提供商信息
+  extractOAuthProvider(user) {
+    // 这里可以根据实际的用户数据结构来提取 OAuth 提供商信息
+    // 目前简单返回 'google'，实际应该从 user 对象的其他字段获取
+    if (user.clerkUserId) {
+      // 可以根据 Clerk ID 的模式或其他字段来判断提供商
+      return 'google' // 默认返回 google，实际应该更智能地检测
+    }
+    return 'unknown'
   }
 
   // 🔄 转移匹配的API Keys给新用户

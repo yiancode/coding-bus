@@ -129,7 +129,14 @@
             </button>
           </div>
 
-          <div class="text-center">
+          <div class="flex justify-center space-x-4 text-center">
+            <router-link
+              class="text-sm text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
+              to="/user-login-social"
+            >
+              社交登录
+            </router-link>
+            <span class="text-sm text-gray-400">|</span>
             <router-link
               class="text-sm text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300"
               to="/admin-login"
