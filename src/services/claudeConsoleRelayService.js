@@ -67,14 +67,6 @@ class ClaudeConsoleRelayService {
       // 创建AbortController用于取消请求
       abortController = new AbortController()
 
-      // 设置超时取消请求
-      const timeoutId = setTimeout(() => {
-        logger.warn(`⏰ Request timeout after ${config.proxy.fastFailTimeout}ms, aborting...`);
-        if (!abortController.signal.aborted) {
-          abortController.abort('Request timeout after 12 seconds');
-        }
-      }, config.proxy.fastFailTimeout || 12000);
-
       // 设置客户端断开监听器
       const handleClientDisconnect = () => {
         logger.info('🔌 Client disconnected, aborting Claude Console Claude request')
@@ -225,11 +217,6 @@ class ClaudeConsoleRelayService {
         accountId
       }
     } catch (error) {
-      // 清理超时定时器
-      if (typeof timeoutId !== 'undefined') {
-        clearTimeout(timeoutId);
-      }
-      
       // 处理特定错误
       if (error.name === 'AbortError' || error.code === 'ECONNABORTED') {
         logger.info('Request aborted due to client disconnect')
@@ -467,7 +454,6 @@ class ClaudeConsoleRelayService {
           let buffer = ''
           let finalUsageReported = false
           const collectedUsageData = {}
-          const collectedContent = []
 
           // 处理流数据
           response.data.on('data', (chunk) => {
@@ -531,96 +517,6 @@ class ClaudeConsoleRelayService {
                         }
                       }
 
-                      // 捕获内容块开始
-                      if (data.type === 'content_block_start' && data.content_block) {
-                        logger.info('📊 [Stream Capture] Content block start', {
-                          index: data.index,
-                          blockType: data.content_block.type,
-                          blockName: data.content_block.name,
-                          hasInput: !!data.content_block.input,
-                          inputKeys: data.content_block.input
-                            ? Object.keys(data.content_block.input)
-                            : []
-                        })
-
-                        collectedContent.push({
-                          index: data.index,
-                          type: data.content_block.type,
-                          name: data.content_block.name,
-                          input: data.content_block.input || {},
-                          text: '',
-                          inputJsonBuffer: '' // 用于累积拼接JSON字符串
-                        })
-                      }
-
-                      // 捕获内容块增量
-                      if (data.type === 'content_block_delta' && data.delta) {
-                        const contentIndex = data.index
-                        logger.info('📊 [Stream Capture] Content block delta', {
-                          index: contentIndex,
-                          deltaType: data.delta.type,
-                          hasText: !!data.delta.text,
-                          hasPartialJson: !!data.delta.partial_json,
-                          textLength: data.delta.text ? data.delta.text.length : 0,
-                          partialJsonLength: data.delta.partial_json
-                            ? data.delta.partial_json.length
-                            : 0
-                        })
-
-                        if (collectedContent[contentIndex]) {
-                          if (data.delta.type === 'text_delta' && data.delta.text) {
-                            collectedContent[contentIndex].text += data.delta.text
-                          } else if (
-                            data.delta.type === 'input_json_delta' &&
-                            data.delta.partial_json
-                          ) {
-                            logger.info('📊 [Stream Capture] Processing input_json_delta', {
-                              partialJson: data.delta.partial_json
-                            })
-                            // 累积拼接JSON字符串
-                            if (!collectedContent[contentIndex].inputJsonBuffer) {
-                              collectedContent[contentIndex].inputJsonBuffer = ''
-                            }
-                            collectedContent[contentIndex].inputJsonBuffer +=
-                              data.delta.partial_json
-
-                            // 尝试解析完整JSON
-                            try {
-                              const completeInput = JSON.parse(
-                                collectedContent[contentIndex].inputJsonBuffer
-                              )
-                              collectedContent[contentIndex].input = completeInput
-                              logger.info(
-                                '📊 [Stream Capture] Successfully parsed complete input JSON',
-                                {
-                                  inputKeys: Object.keys(completeInput),
-                                  bufferLength:
-                                    collectedContent[contentIndex].inputJsonBuffer.length
-                                }
-                              )
-                            } catch (e) {
-                              // JSON不完整，继续累积
-                              logger.debug(
-                                '📊 [Stream Capture] JSON incomplete, continuing to buffer',
-                                {
-                                  error: e.message,
-                                  bufferLength:
-                                    collectedContent[contentIndex].inputJsonBuffer.length,
-                                  bufferPreview: collectedContent[
-                                    contentIndex
-                                  ].inputJsonBuffer.substring(0, 100)
-                                }
-                              )
-                            }
-                          }
-                        } else {
-                          logger.warn('📊 [Stream Capture] Content index not found', {
-                            requestedIndex: contentIndex,
-                            availableIndices: collectedContent.map((c, i) => i)
-                          })
-                        }
-                      }
-
                       if (
                         data.type === 'message_delta' &&
                         data.usage &&
@@ -629,49 +525,7 @@ class ClaudeConsoleRelayService {
                         collectedUsageData.output_tokens = data.usage.output_tokens || 0
 
                         if (collectedUsageData.input_tokens !== undefined && !finalUsageReported) {
-                          logger.info('📊 [Stream Capture] Building response for callback', {
-                            collectedContentLength: collectedContent.length,
-                            collectedContentSummary: collectedContent.map((item) => ({
-                              index: item.index,
-                              type: item.type,
-                              name: item.name,
-                              hasInput: !!item.input,
-                              inputKeys: Object.keys(item.input || {}),
-                              textLength: item.text ? item.text.length : 0
-                            }))
-                          })
-
-                          // 构建完整的响应对象传递给插件
-                          const callbackResponse = {
-                            content: collectedContent.map((item) => ({
-                              type: 'tool_use',
-                              name: item.name,
-                              input: item.input
-                            }))
-                          }
-
-                          logger.info('📊 [Stream Capture] Final response for callback', {
-                            responseContentLength: callbackResponse.content.length,
-                            responseContent: callbackResponse.content.map((item) => ({
-                              type: item.type,
-                              name: item.name,
-                              inputKeys: Object.keys(item.input || {}),
-                              inputSample: Object.keys(item.input || {}).reduce((acc, key) => {
-                                acc[key] =
-                                  typeof item.input[key] === 'string'
-                                    ? item.input[key].substring(0, 100) +
-                                      (item.input[key].length > 100 ? '...' : '')
-                                    : item.input[key]
-                                return acc
-                              }, {})
-                            }))
-                          })
-
-                          usageCallback({
-                            ...collectedUsageData,
-                            accountId,
-                            response: callbackResponse
-                          })
+                          usageCallback({ ...collectedUsageData, accountId })
                           finalUsageReported = true
                         }
                       }
@@ -846,41 +700,6 @@ class ClaudeConsoleRelayService {
         `⚠️ Failed to update last used time for Claude Console account ${accountId}:`,
         error.message
       )
-    }
-  }
-
-  // ⏱️ 更新账户响应时间
-  async _updateAccountResponseTime(accountId, responseTime) {
-    try {
-      const client = require('../models/redis').getClientSafe();
-      const avgKey = `claude_console_account_avg_response:${accountId}`;
-      
-      // 获取当前平均响应时间和请求计数
-      const currentAvg = await client.get(avgKey) || '0';
-      const countKey = `claude_console_account_count:${accountId}`;
-      const currentCount = parseInt(await client.get(countKey) || '0');
-      
-      // 计算新的平均响应时间（使用滑动平均，最多考虑最近100次请求）
-      const maxSamples = 100;
-      const effectiveCount = Math.min(currentCount, maxSamples - 1);
-      const newAvg = effectiveCount === 0 
-        ? responseTime 
-        : ((parseFloat(currentAvg) * effectiveCount) + responseTime) / (effectiveCount + 1);
-      
-      // 更新Redis中的数据
-      await client.set(avgKey, newAvg.toFixed(2));
-      await client.set(countKey, currentCount + 1);
-      
-      // 同时更新账户记录中的平均响应时间
-      await client.hset(
-        `claude_console_account:${accountId}`,
-        'avgResponseTime',
-        newAvg.toFixed(2)
-      );
-      
-      logger.debug(`📊 Updated response time for account ${accountId}: ${responseTime}ms (avg: ${newAvg.toFixed(2)}ms)`);
-    } catch (error) {
-      logger.warn(`⚠️ Failed to update response time for Claude Console account ${accountId}:`, error.message);
     }
   }
 

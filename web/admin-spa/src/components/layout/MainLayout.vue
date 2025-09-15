@@ -39,7 +39,6 @@ const tabRouteMap = computed(() => {
     dashboard: '/dashboard',
     apiKeys: '/api-keys',
     accounts: '/accounts',
-    codeStats: '/code-stats',
     tutorial: '/tutorial',
     settings: '/settings'
   }
@@ -68,8 +67,6 @@ const initActiveTab = () => {
       Dashboard: 'dashboard',
       ApiKeys: 'apiKeys',
       Accounts: 'accounts',
-      CodeStats: 'codeStats',
-      UserManagement: 'userManagement',
       Tutorial: 'tutorial',
       Settings: 'settings'
     }
@@ -99,8 +96,6 @@ watch(
         Dashboard: 'dashboard',
         ApiKeys: 'apiKeys',
         Accounts: 'accounts',
-        CodeStats: 'codeStats',
-        UserManagement: 'userManagement',
         Tutorial: 'tutorial',
         Settings: 'settings'
       }
