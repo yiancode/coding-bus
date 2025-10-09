@@ -246,6 +246,3 @@ web/apiStats/
 
 # Admin SPA build files
 web/admin-spa/dist/
-
-# Apache configuration files
-.htaccess
