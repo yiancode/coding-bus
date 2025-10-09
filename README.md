@@ -17,14 +17,14 @@
 
 ---
 
-## 💎 Claude 拼车 - Claude Code 合租服务推荐
+## 💎 Claude/Codex 拼车服务推荐
 
 <div align="center">
 
-| 平台 | 类型 | 介绍 |
-|:---:|:---:|:---|
-| **[pincc.ai](https://pincc.ai/)** | 🏆 **官方运营** | 项目官方直营的Claude拼车服务<br>提供200刀 Claude Code Max 套餐共享服务 |
-| **[ctok.ai](https://ctok.ai/)** | 🤝 合作伙伴 | 社区认可的Claude拼车服务 |
+| 平台 | 类型 | 服务 | 介绍 |
+|:---|:---|:---|:---|
+| **[pincc.ai](https://pincc.ai/)** | 🏆 **官方运营** | <small>✅ Claude Code<br>✅ Codex CLI</small> | 项目直营，提供稳定的 Claude Code / Codex CLI 拼车服务 |
+| **[ctok.ai](https://ctok.ai/)** | 🤝 合作伙伴 | <small>✅ Claude Code<br>✅ Codex CLI</small> | 社区认证，提供 Claude Code / Codex CLI 拼车 |
 
 
 </div>
@@ -394,6 +394,18 @@ export ANTHROPIC_BASE_URL="http://127.0.0.1:3000/api/" # 根据实际填写你�
 export ANTHROPIC_AUTH_TOKEN="后台创建的API密钥"
 ```
 
+**VSCode Claude 插件配置：**
+
+如果使用 VSCode 的 Claude 插件，需要在 `~/.claude/config.json` 文件中配置：
+
+```json
+{
+    "primaryApiKey": "crs"
+}
+```
+
+如果该文件不存在，请手动创建。Windows 用户路径为 `C:\Users\你的用户名\.claude\config.json`。
+
 **Gemini CLI 设置环境变量：**
 
 ```bash
@@ -416,7 +428,7 @@ gemini  # 或其他 Gemini CLI 命令
 
 **Codex 配置：**
 
-在 `~/.codex/config.toml` 文件中添加以下配置：
+在 `~/.codex/config.toml` 文件**开头**添加以下配置：
 
 ```toml
 model_provider = "crs"
@@ -447,6 +459,8 @@ env_key = "CRS_OAI_KEY"
 export CRS_OAI_KEY="后台创建的API密钥"
 ```
 
+> ⚠️ 在通过 Nginx 反向代理 CRS 服务并使用 Codex CLI 时，需要在 http 块中添加 underscores_in_headers on;。因为 Nginx 默认会移除带下划线的请求头（如 session_id），一旦该头被丢弃，多账号环境下的粘性会话功能将失效。
+
 ### 5. 第三方工具API接入
 
 本服务支持多种API端点格式，方便接入不同的第三方工具（如Cherry Studio等）。
@@ -459,23 +473,23 @@ Cherry Studio支持多种AI服务的接入，下面是不同账号类型的详�
 
 ```
 # API地址
-http://你的服务器:3000/claude/
+http://你的服务器:3000/claude
 
 # 模型ID示例
-claude-sonnet-4-20250514  # Claude Sonnet 4
+claude-sonnet-4-5-20250929 # Claude Sonnet 4.5
 claude-opus-4-20250514     # Claude Opus 4
 ```
 
 配置步骤：
 - 供应商类型选择"Anthropic"
-- API地址填入：`http://你的服务器:3000/claude/`
+- API地址填入：`http://你的服务器:3000/claude`
 - API Key填入：后台创建的API密钥（cr_开头）
 
 **2. Gemini账号接入：**
 
 ```
 # API地址
-http://你的服务器:3000/gemini/
+http://你的服务器:3000/gemini
 
 # 模型ID示例
 gemini-2.5-pro             # Gemini 2.5 Pro
@@ -483,14 +497,14 @@ gemini-2.5-pro             # Gemini 2.5 Pro
 
 配置步骤：
 - 供应商类型选择"Gemini"
-- API地址填入：`http://你的服务器:3000/gemini/`
+- API地址填入：`http://你的服务器:3000/gemini`
 - API Key填入：后台创建的API密钥（cr_开头）
 
 **3. Codex接入：**
 
 ```
 # API地址
-http://你的服务器:3000/openai/
+http://你的服务器:3000/openai
 
 # 模型ID（固定）
 gpt-5                      # Codex使用固定模型ID
@@ -498,9 +512,16 @@ gpt-5                      # Codex使用固定模型ID
 
 配置步骤：
 - 供应商类型选择"Openai-Response"
-- API地址填入：`http://你的服务器:3000/openai/`
+- API地址填入：`http://你的服务器:3000/openai`
 - API Key填入：后台创建的API密钥（cr_开头）
 - **重要**：Codex只支持Openai-Response标准
+
+**Cherry Studio 地址格式重要说明：**
+
+- ✅ **推荐格式**：`http://你的服务器:3000/claude`（不加结尾 `/`，让 Cherry Studio 自动加上 v1）
+- ✅ **等效格式**：`http://你的服务器:3000/claude/v1/`（手动指定 v1 并加结尾 `/`）
+- 💡 **说明**：这两种格式在 Cherry Studio 中是完全等效的
+- ❌ **错误格式**：`http://你的服务器:3000/claude/`（单独的 `/` 结尾会被 Cherry Studio 忽略 v1 版本）
 
 #### 其他第三方工具接入
 
