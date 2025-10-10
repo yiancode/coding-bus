@@ -1,4 +1,4 @@
-# Claude Relay Service
+# Coding Bus
 
 <div align="center">
 
@@ -7,7 +7,7 @@
 [![Redis](https://img.shields.io/badge/Redis-6+-red.svg)](https://redis.io/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
 
-**🔐 Self-hosted Claude API relay service with multi-account management** 
+**🚌 AI API relay service with multi-account management** 
 
 [中文文档](README.md) • [Preview](https://demo.pincc.ai/admin-next/login) • [Telegram Channel](https://t.me/claude_relay_service)
 
