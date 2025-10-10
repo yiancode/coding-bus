@@ -24,6 +24,10 @@ Coding Bus 是一个功能完整的 AI API 中转服务，支持 Claude 和 Gemi
 - **geminiAccountService.js**: Gemini账户管理，Google OAuth token刷新和账户选择
 - **apiKeyService.js**: API Key管理，验证、限流和使用统计
 - **oauthHelper.js**: OAuth工具，PKCE流程实现和代理支持
+- **unifiedClaudeScheduler.js**: 统一账户调度器，支持专属绑定和粘性会话
+- **pricingService.js**: 模型定价服务，自动计算token费用
+- **claudeCodeHeadersService.js**: 存储和复用真实Claude Code客户端的请求头
+- **tokenRefreshService.js**: 后台Token自动刷新服务
 
 ### 认证和代理流程
 
@@ -54,9 +58,14 @@ npm run install:web           # 安装Web界面依赖
 
 # 开发和运行
 npm run dev                   # 开发模式（热重载）
-npm start                     # 生产模式
+npm start                     # 生产模式（执行lint后启动）
 npm test                      # 运行测试
-npm run lint                  # 代码检查
+npm run lint                  # 代码检查并自动修复
+npm run lint:check            # 仅检查代码风格
+
+# 代码格式化
+npm run format                # 格式化所有代码
+npm run format:check          # 检查代码格式
 
 # Docker部署
 docker-compose up -d          # 推荐方式
@@ -66,7 +75,13 @@ docker-compose --profile monitoring up -d  # 包含监控
 npm run service:start:daemon  # 后台启动（推荐）
 npm run service:status        # 查看服务状态
 npm run service:logs          # 查看日志
+npm run service:logs:follow   # 实时查看日志
 npm run service:stop          # 停止服务
+npm run service:restart:daemon # 重启服务
+
+# 构建和部署
+npm run build:web             # 构建前端界面
+npm run docker:build          # 构建Docker镜像
 
 ### 开发环境配置
 必须配置的环境变量：
@@ -237,9 +252,14 @@ npm run setup  # 自动生成密钥并创建管理员账户
 
 - **API Keys**: `api_key:{id}` (详细信息) + `api_key_hash:{hash}` (快速查找)
 - **Claude 账户**: `claude_account:{id}` (加密的 OAuth 数据)
+- **Gemini 账户**: `gemini_account:{id}` (Google OAuth 数据)
+- **账户组**: `account_group:{id}` (账户分组配置)
 - **管理员**: `admin:{id}` + `admin_username:{username}` (用户名映射)
+- **用户**: `user:{id}` + `user_session:{token}` (用户管理和会话)
 - **会话**: `session:{token}` (JWT 会话管理)
 - **使用统计**: `usage:daily:{date}:{key}:{model}` (多维度统计)
+- **费用统计**: `cost:daily:{date}:{key}` + `cost:total:{key}` (费用跟踪)
+- **账户状态**: `claude_account:{id}:rate_limited` (限流状态缓存)
 - **系统信息**: `system_info` (系统状态缓存)
 
 ### 流式响应处理
