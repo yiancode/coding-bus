@@ -218,7 +218,7 @@ class Application {
           // 安全检查
           if (
             requestPath.includes('..') ||
-            requestPath.includes('//') ||22
+            requestPath.includes('//') ||
             requestPath.includes('\\')
           ) {
             return res.status(400).json({ error: 'Invalid path' })
