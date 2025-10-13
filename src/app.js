@@ -183,7 +183,10 @@ class Application {
 
       // 🎨 新版管理界面静态文件服务（必须在其他路由之前）
       const adminSpaPath = path.join(__dirname, '..', 'web', 'admin-spa', 'dist')
+      logger.info(`📍 Admin SPA path resolved to: ${adminSpaPath}`)
+      logger.info(`📂 Admin SPA path exists: ${fs.existsSync(adminSpaPath)}`)
       if (fs.existsSync(adminSpaPath)) {
+        logger.info('✅ Admin SPA dist directory found, mounting routes...')
         // 处理不带斜杠的路径，重定向到带斜杠的路径
         this.app.get('/admin-next', (req, res) => {
           res.redirect(301, '/admin-next/')
