@@ -18,7 +18,17 @@ class WebhookConfigService {
         // 返回默认配置
         return this.getDefaultConfig()
       }
-      return JSON.parse(configStr)
+
+      const storedConfig = JSON.parse(configStr)
+      const defaultConfig = this.getDefaultConfig()
+
+      // 合并默认通知类型，确保新增类型有默认值
+      storedConfig.notificationTypes = {
+        ...defaultConfig.notificationTypes,
+        ...(storedConfig.notificationTypes || {})
+      }
+
+      return storedConfig
     } catch (error) {
       logger.error('获取webhook配置失败:', error)
       return this.getDefaultConfig()
@@ -30,6 +40,13 @@ class WebhookConfigService {
    */
   async saveConfig(config) {
     try {
+      const defaultConfig = this.getDefaultConfig()
+
+      config.notificationTypes = {
+        ...defaultConfig.notificationTypes,
+        ...(config.notificationTypes || {})
+      }
+
       // 验证配置
       this.validateConfig(config)
 
@@ -62,6 +79,7 @@ class WebhookConfigService {
         'feishu',
         'slack',
         'discord',
+        'telegram',
         'custom',
         'bark',
         'smtp'
@@ -73,7 +91,7 @@ class WebhookConfigService {
         }
 
         // Bark和SMTP平台不使用标准URL
-        if (platform.type !== 'bark' && platform.type !== 'smtp') {
+        if (!['bark', 'smtp', 'telegram'].includes(platform.type)) {
           if (!platform.url || !this.isValidUrl(platform.url)) {
             throw new Error(`无效的webhook URL: ${platform.url}`)
           }
@@ -115,6 +133,43 @@ class WebhookConfigService {
         // Discord webhook URL格式检查
         if (!platform.url.includes('discord.com/api/webhooks')) {
           logger.warn('⚠️ Discord webhook URL格式可能不正确')
+        }
+        break
+      case 'telegram':
+        if (!platform.botToken) {
+          throw new Error('Telegram 平台必须提供机器人 Token')
+        }
+        if (!platform.chatId) {
+          throw new Error('Telegram 平台必须提供 Chat ID')
+        }
+
+        if (!platform.botToken.includes(':')) {
+          logger.warn('⚠️ Telegram 机器人 Token 格式可能不正确')
+        }
+
+        if (!/^[-\d]+$/.test(String(platform.chatId))) {
+          logger.warn('⚠️ Telegram Chat ID 应该是数字，如为频道请确认已获取正确ID')
+        }
+
+        if (platform.apiBaseUrl) {
+          if (!this.isValidUrl(platform.apiBaseUrl)) {
+            throw new Error('Telegram API 基础地址格式无效')
+          }
+          const { protocol } = new URL(platform.apiBaseUrl)
+          if (!['http:', 'https:'].includes(protocol)) {
+            throw new Error('Telegram API 基础地址仅支持 http 或 https 协议')
+          }
+        }
+
+        if (platform.proxyUrl) {
+          if (!this.isValidUrl(platform.proxyUrl)) {
+            throw new Error('Telegram 代理地址格式无效')
+          }
+          const proxyProtocol = new URL(platform.proxyUrl).protocol
+          const supportedProtocols = ['http:', 'https:', 'socks4:', 'socks4a:', 'socks5:']
+          if (!supportedProtocols.includes(proxyProtocol)) {
+            throw new Error('Telegram 代理仅支持 http/https/socks 协议')
+          }
         }
         break
       case 'custom':
@@ -274,6 +329,7 @@ class WebhookConfigService {
         quotaWarning: true, // 配额警告
         systemError: true, // 系统错误
         securityAlert: true, // 安全警报
+        rateLimitRecovery: true, // 限流恢复
         test: true // 测试通知
       },
       retrySettings: {

@@ -181,12 +181,37 @@ class Application {
 
       // 🎨 Vue SPA 静态文件服务（必须在其他路由之前）
       const adminSpaPath = path.join(__dirname, '..', 'web', 'admin-spa', 'dist')
+      logger.info(`📍 Admin SPA path resolved to: ${adminSpaPath}`)
+      logger.info(`📂 Admin SPA path exists: ${fs.existsSync(adminSpaPath)}`)
       if (fs.existsSync(adminSpaPath)) {
-        
-        // 🎯 静态资源处理 - 优先处理所有静态文件
-        this.app.get('/assets/*', (req, res) => {
-          const requestPath = req.path.replace('/assets/', 'assets/')
-          const filePath = path.join(adminSpaPath, requestPath)
+        logger.info('✅ Admin SPA dist directory found, mounting routes...')
+        // 处理不带斜杠的路径，重定向到带斜杠的路径
+        this.app.get('/admin-next', (req, res) => {
+          res.redirect(301, '/admin-next/')
+        })
+
+        // 使用 all 方法确保捕获所有 HTTP 方法
+        this.app.all('/admin-next/', (req, res) => {
+          logger.info('🎯 HIT: /admin-next/ route handler triggered!')
+          logger.info(`Method: ${req.method}, Path: ${req.path}, URL: ${req.url}`)
+
+          if (req.method !== 'GET' && req.method !== 'HEAD') {
+            return res.status(405).send('Method Not Allowed')
+          }
+
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+          res.sendFile(path.join(adminSpaPath, 'index.html'))
+        })
+
+        // 处理所有其他 /admin-next/* 路径（但排除根路径）
+        this.app.get('/admin-next/*', (req, res) => {
+          // 如果是根路径，跳过（应该由上面的路由处理）
+          if (req.path === '/admin-next/') {
+            logger.error('❌ ERROR: /admin-next/ should not reach here!')
+            return res.status(500).send('Route configuration error')
+          }
+
+          const requestPath = req.path.replace('/admin-next/', '')
 
           // 安全检查
           if (
@@ -197,30 +222,32 @@ class Application {
             return res.status(400).json({ error: 'Invalid path' })
           }
 
-          // 如果文件存在
+          // 检查是否为静态资源
+          const filePath = path.join(adminSpaPath, requestPath)
+
+          // 如果文件存在且是静态资源
           if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
-            // 设置长期缓存
-            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+            // 设置缓存头
+            if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
+              res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+            } else if (filePath.endsWith('.html')) {
+              res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+            }
             return res.sendFile(filePath)
           }
 
-          return res.status(404).send('Asset not found')
+          // 如果是静态资源但文件不存在
+          if (requestPath.match(/\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf)$/i)) {
+            return res.status(404).send('Not found')
+          }
+
+          // 其他所有路径返回 index.html（SPA 路由）
+          res.sendFile(path.join(adminSpaPath, 'index.html'))
         })
 
-        // 🔄 向后兼容：保持 /admin-next/ 路径工作（重定向到 /api-stats）
-        this.app.get('/admin-next', (req, res) => {
-          res.redirect(301, '/api-stats')
-        })
-        
-        this.app.get('/admin-next/*', (req, res) => {
-          // 从 /admin-next/xxx 重定向到 /xxx
-          const newPath = req.path.replace('/admin-next', '') || '/api-stats'
-          res.redirect(301, newPath)
-        })
-
-        logger.info('✅ Vue SPA static files mounted at / with /admin-next compatibility')
+        logger.info('✅ Admin SPA (next) static files mounted at /admin-next/')
       } else {
-        logger.warn('⚠️ Vue SPA dist directory not found, skipping static file serving')
+        logger.warn('⚠️ Admin SPA dist directory not found, skipping /admin-next route')
       }
 
       // 🛣️ 路由
@@ -231,26 +258,20 @@ class Application {
       // 使用 web 路由（包含 auth 和页面重定向）
       this.app.use('/web', webRoutes)
       this.app.use('/apiStats', apiStatsRoutes)
-      this.app.use('/gemini', geminiRoutes)
+      // Gemini 路由：同时支持标准格式和原有格式
+      this.app.use('/gemini', standardGeminiRoutes) // 标准 Gemini API 格式路由
+      this.app.use('/gemini', geminiRoutes) // 保留原有路径以保持向后兼容
       this.app.use('/openai/gemini', openaiGeminiRoutes)
       this.app.use('/openai/claude', openaiClaudeRoutes)
       this.app.use('/openai', openaiRoutes)
+      // Droid 路由：支持多种 Factory.ai 端点
+      this.app.use('/droid', droidRoutes) // Droid (Factory.ai) API 转发
       this.app.use('/azure', azureOpenaiRoutes)
       this.app.use('/admin/webhook', webhookRoutes)
 
-      // 🏠 根路径服务 Landing Page
+      // 🏠 根路径重定向到新版管理界面
       this.app.get('/', (req, res) => {
-        // 检查 Vue SPA 的 index.html 是否存在
-        const adminSpaPath = path.join(__dirname, '..', 'web', 'admin-spa', 'dist')
-        const indexPath = path.join(adminSpaPath, 'index.html')
-        
-        if (fs.existsSync(indexPath)) {
-          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
-          return res.sendFile(indexPath)
-        } else {
-          logger.error('❌ Landing page index.html not found at:', indexPath)
-          return res.status(404).send('Landing page not found')
-        }
+        res.redirect('/admin-next/api-stats')
       })
 
       // 🏥 增强的健康检查端点
@@ -335,38 +356,7 @@ class Application {
         }
       })
 
-      // 🎨 Vue SPA 路由回退 - 处理所有非API路径
-      this.app.get('*', (req, res) => {
-        // 检查是否为API路径或已知的后端路径
-        const apiPaths = ['/api/', '/admin/', '/users/', '/web/', '/apiStats/', '/gemini/', '/openai/', '/azure/', '/health', '/metrics']
-        const isApiPath = apiPaths.some(path => req.path.startsWith(path))
-        
-        if (isApiPath) {
-          // API 路径返回 404
-          return res.status(404).json({
-            error: 'Not Found',
-            message: `API route ${req.originalUrl} not found`,
-            timestamp: new Date().toISOString()
-          })
-        }
-        
-        // 其他所有路径都返回 Vue SPA
-        const adminSpaPath = path.join(__dirname, '..', 'web', 'admin-spa', 'dist')
-        const indexPath = path.join(adminSpaPath, 'index.html')
-        
-        if (fs.existsSync(indexPath)) {
-          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
-          return res.sendFile(indexPath)
-        } else {
-          return res.status(404).json({
-            error: 'Not Found',
-            message: 'Vue SPA not found',
-            timestamp: new Date().toISOString()
-          })
-        }
-      })
-      
-      // 🚫 非GET请求的404处理
+      // 🚫 404 处理
       this.app.use('*', (req, res) => {
         res.status(404).json({
           error: 'Not Found',

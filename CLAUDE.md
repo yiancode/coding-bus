@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-Claude Relay Service 是一个功能完整的 AI API 中转服务，支持 Claude 和 Gemini 双平台。提供多账户管理、API Key 认证、代理配置和现代化 Web 管理界面。该服务作为客户端（如 SillyTavern、Claude Code、Gemini CLI）与 AI API 之间的中间件，提供认证、限流、监控等功能。
+Coding Bus 是一个功能完整的 AI API 中转服务，支持 Claude 和 Gemini 双平台。提供多账户管理、API Key 认证、代理配置和现代化 Web 管理界面。该服务作为客户端（如 SillyTavern、Claude Code、Gemini CLI）与 AI API 之间的中间件，提供认证、限流、监控等功能。
 
 ## 核心架构
 
@@ -19,11 +19,38 @@ Claude Relay Service 是一个功能完整的 AI API 中转服务，支持 Claud
 
 ### 主要服务组件
 
-- **claudeRelayService.js**: 核心代理服务，处理请求转发和流式响应
+**核心转发服务**:
+
+- **claudeRelayService.js**: Claude API核心代理，处理请求转发和SSE流式响应
+- **droidRelayService.js**: Droid (Factory.ai) API代理服务
+- **geminiRelayService.js**: Gemini API代理，支持SSE和函数调用
+- **openaiResponsesRelayService.js**: OpenAI Responses格式代理（Codex CLI）
+- **ccrRelayService.js**: CCR账户代理服务
+- **claudeConsoleRelayService.js**: Claude Console账户代理
+
+**账户管理服务**:
+
 - **claudeAccountService.js**: Claude账户管理，OAuth token刷新和账户选择
-- **geminiAccountService.js**: Gemini账户管理，Google OAuth token刷新和账户选择
-- **apiKeyService.js**: API Key管理，验证、限流和使用统计
+- **droidAccountService.js**: Droid账户管理和WorkOS OAuth集成
+- **geminiAccountService.js**: Gemini账户管理，Google OAuth token刷新
+- **openaiAccountService.js**: OpenAI账户管理
+- **ccrAccountService.js**: CCR账户管理
+- **claudeConsoleAccountService.js**: Claude Console账户管理
+
+**调度和路由**:
+
+- **droidScheduler.js**: Droid账户调度器，支持粘性会话和专属绑定
+
+**核心工具服务**:
+
+- **apiKeyService.js**: API Key管理，验证、限流、使用统计和客户端验证
 - **oauthHelper.js**: OAuth工具，PKCE流程实现和代理支持
+- **workosOAuthHelper.js**: WorkOS OAuth助手，用于Droid认证
+- **pricingService.js**: 模型定价服务，自动计算token费用（支持动态更新）
+- **claudeCodeHeadersService.js**: 存储和复用真实客户端请求头
+- **tokenRefreshService.js**: 后台Token自动刷新服务
+- **rateLimitCleanupService.js**: 自动清理过期的限流状态
+- **accountGroupService.js**: 账户分组管理服务
 
 ### 认证和代理流程
 
@@ -70,20 +97,22 @@ Claude Relay Service 是一个功能完整的 AI API 中转服务，支持 Claud
 
 ### 基本开发命令
 
-````bash
+```bash
 # 安装依赖和初始化
 npm install
 npm run setup                  # 生成配置和管理员凭据
 npm run install:web           # 安装Web界面依赖
 
 # 开发和运行
-npm run dev                   # 开发模式（热重载）
-npm start                     # 生产模式
-npm test                      # 运行测试
-npm run lint                  # 代码检查和自动修复
-npm run lint:check            # 代码检查（不自动修复）
-npm run format                # Prettier格式化所有文件
-npm run format:check          # 检查格式但不修复
+npm run dev                   # 开发模式（热重载，使用nodemon）
+npm start                     # 生产模式（执行lint后启动）
+npm test                      # 运行测试（Jest + SuperTest）
+npm run lint                  # 代码检查并自动修复
+npm run lint:check            # 仅检查代码风格
+
+# 代码格式化
+npm run format                # 格式化所有代码（Prettier）
+npm run format:check          # 检查代码格式但不修复
 
 # Web界面开发
 cd web/admin-spa
@@ -98,7 +127,7 @@ npm run docker:build         # 构建Docker镜像
 npm run docker:up            # 启动Docker容器
 npm run docker:down          # 停止Docker容器
 
-# 服务管理
+# 服务管理（生产环境推荐）
 npm run service:start:daemon  # 后台启动（推荐）
 npm run service:start         # 前台启动
 npm run service:status        # 查看服务状态
@@ -109,9 +138,9 @@ npm run service:restart       # 重启服务
 npm run service:restart:daemon # 后台重启
 
 # 数据管理和迁移
-npm run data:export           # 导出数据
-npm run data:import           # 导入数据
-npm run data:export:sanitized # 导出脱敏数据
+npm run data:export           # 导出所有Redis数据
+npm run data:import           # 导入Redis数据
+npm run data:export:sanitized # 导出数据（脱敏处理）
 npm run data:debug            # 调试Redis键
 npm run migrate:apikey-expiry # 迁移API Key过期时间
 npm run migrate:apikey-expiry:dry # 迁移预演（不实际执行）
@@ -139,7 +168,7 @@ npm run status:detail         # 详细状态信息
 cp config/config.example.js config/config.js
 cp .env.example .env
 npm run setup  # 自动生成密钥并创建管理员账户
-````
+```
 
 ## Web界面功能
 
@@ -161,44 +190,62 @@ npm run setup  # 自动生成密钥并创建管理员账户
 
 ## 重要端点
 
-### API转发端点（主要客户端接口）
+### API转发端点（多路由支持）
 
-- `POST /api/v1/messages` - Claude API消息处理（支持流式）
-- `GET /api/v1/models` - 模型列表（兼容性）
+**Claude API路由**:
+
+- `POST /api/v1/messages` - 标准Claude API消息端点（支持SSE流式）
+- `POST /claude/v1/messages` - Claude API别名路由
+- `GET /api/v1/models` - 模型列表
 - `GET /api/v1/usage` - 使用统计查询
 - `GET /api/v1/key-info` - API Key信息
 
-### 多服务端点（不同AI服务）
+**Droid (Factory.ai) 路由**:
 
-- `POST /claude/*` - Claude服务端点
-- `POST /gemini/*` - Gemini服务端点  
-- `POST /openai/*` - OpenAI兼容端点
-- `POST /openai-gemini/*` - OpenAI格式转发到Gemini
-- `POST /openai-claude/*` - OpenAI格式转发到Claude
-- `POST /azure-openai/*` - Azure OpenAI端点
+- `POST /droid/claude/v1/messages` - Droid类型Claude账户
+- `POST /droid/openai/v1/chat/completions` - Droid类型OpenAI兼容端点（用于Codex CLI）
+
+**Gemini 路由**:
+
+- `POST /gemini/v1beta/models/{model}:generateContent` - 标准Gemini API
+- `POST /gemini/v1/models/{model}:generateContent` - Gemini v1端点
+- `POST /gemini/v1beta/models/{model}:streamGenerateContent` - 流式生成
+
+**OpenAI兼容路由**:
+
+- `POST /openai/v1/chat/completions` - OpenAI Responses格式（Codex）
+- `POST /openai/claude/v1/chat/completions` - OpenAI转Claude格式
+- `POST /openai/gemini/v1/chat/completions` - OpenAI转Gemini格式
 
 ### OAuth管理端点
+
+**Claude账户**:
 
 - `POST /admin/claude-accounts/generate-auth-url` - 生成OAuth授权URL（含代理）
 - `POST /admin/claude-accounts/exchange-code` - 交换authorization code
 - `POST /admin/claude-accounts` - 创建OAuth账户
-- `GET /admin/claude-accounts` - 获取Claude账户列表
-- `POST /admin/gemini-accounts` - 管理Gemini账户
+- `PUT /admin/claude-accounts/:id` - 更新账户配置
+- `DELETE /admin/claude-accounts/:id` - 删除账户
 
-### 系统和管理端点
+**Droid账户**:
 
-- `GET /health` - 健康检查
-- `GET /web` - Web管理界面
+- `POST /admin/droid-accounts/generate-auth-url` - 生成WorkOS授权URL
+- `POST /admin/droid-accounts/exchange-code` - 交换authorization code
+- `POST /admin/droid-accounts` - 创建Droid账户
+
+**Gemini账户**:
+
+- `POST /admin/gemini-accounts` - 创建Gemini账户
+- `POST /admin/gemini-accounts/:id/refresh-token` - 手动刷新token
+
+### 系统端点
+
+- `GET /health` - 健康检查（包含Redis、Logger状态）
+- `GET /metrics` - 系统指标（内存、Redis统计）
+- `GET /web` - 旧版Web管理界面
+- `GET /admin-next/` - 新版SPA管理界面
 - `GET /admin/dashboard` - 系统概览数据
-- `GET /admin/api-keys` - API Key管理
-- `POST /admin/api-keys` - 创建新API Key
 - `GET /admin/logs` - 实时日志查看
-- `GET /api/stats/*` - 统计数据端点
-
-### Webhook端点
-
-- `POST /webhook/*` - Webhook配置和触发端点
-- 支持自定义Webhook配置和事件通知
 
 ## 故障排除
 
@@ -234,11 +281,7 @@ npm run setup  # 自动生成密钥并创建管理员账户
   - API Key管理：`npm run cli keys list`
   - 账户管理：`npm run cli accounts list`
 - **Web界面**: 实时日志查看和系统监控
-  - 访问：`http://localhost:3000/web`
-  - 实时日志页面查看最新日志条目
-- **健康检查**: `/health` 端点提供系统状态
-- **测试脚本**: 专用测试脚本用于特定功能验证
-  - Gemini刷新测试：`node scripts/test-gemini-refresh.js`
+- **健康检查**: /health端点提供系统状态
 
 ## 开发最佳实践
 
@@ -297,52 +340,42 @@ npm run setup  # 自动生成密钥并创建管理员账户
 ### 开发工作流
 
 - **功能开发**: 始终从理解现有代码开始，重用已有的服务和模式
-- **调试流程**: 
-  - 使用 Winston 日志系统（`logs/` 目录）
-  - Web 界面实时日志查看（`/admin/logs`）
-  - CLI 状态工具（`npm run cli status`）
-  - 实时日志跟踪：`npm run service:logs:follow`
-- **请求调试**:
-  - 查看请求流：检查 `authenticateApiKey` 中间件日志
-  - 账户选择：查看 `unifiedClaudeScheduler` 或对应调度器日志
-  - 代理配置：检查 `ProxyHelper` 相关日志
-  - Token刷新：查看 `tokenRefreshService` 和专用错误日志
-- **性能调试**:
-  - Redis性能：使用 `redis-cli monitor` 监控Redis操作
-  - 连接池状态：检查 `cacheMonitor` 工具输出
-  - 内存使用：`npm run monitor` 脚本
+- **调试流程**: 使用 Winston 日志 + Web 界面实时日志查看 + CLI 状态工具
 - **代码审查**: 关注安全性（加密存储）、性能（异步处理）、错误处理
 - **部署前检查**: 运行 lint → 测试 CLI 功能 → 检查日志 → Docker 构建
 
-### 常见开发任务
-
-- **添加新的AI服务支持**:
-  1. 创建 `{service}AccountService.js` 和 `{service}RelayService.js`
-  2. 实现统一调度器 `unified{Service}Scheduler.js`
-  3. 添加路由到 `src/routes/{service}Routes.js`
-  4. 更新 `src/app.js` 中的路由注册
-
-- **修改认证逻辑**:
-  1. 检查 `src/middleware/auth.js` 中的 `authenticateApiKey`
-  2. 修改 `src/services/apiKeyService.js` 相关验证逻辑
-  3. 测试不同API Key格式和限流功能
-
-- **调整代理配置**:
-  1. 修改 `src/utils/proxyHelper.js`
-  2. 检查各服务中的代理使用（如 `claudeRelayService.js`）
-  3. 测试SOCKS5和HTTP代理支持
-
 ### 常见文件位置
 
-- 核心服务逻辑：`src/services/` 目录
-- 路由处理：`src/routes/` 目录
-- 中间件：`src/middleware/` 目录
-- 配置管理：`config/config.js`
-- Redis 模型：`src/models/redis.js`
-- 工具函数：`src/utils/` 目录
-- 前端主题管理：`web/admin-spa/src/stores/theme.js`
-- 前端组件：`web/admin-spa/src/components/` 目录
-- 前端页面：`web/admin-spa/src/views/` 目录
+**后端结构**:
+
+- `src/app.js` - Express应用主入口，路由配置和中间件注册
+- `src/services/` - 核心业务逻辑服务
+- `src/routes/` - API路由处理器
+- `src/middleware/` - 中间件（认证、日志、速率限制等）
+  - `auth.js` - API Key认证中间件（src/middleware/auth.js:33）
+  - `browserFallback.js` - Chrome插件兼容性处理
+- `src/validators/` - 客户端验证器
+  - `clientDefinitions.js` - 预定义客户端规则（Claude Code、Gemini CLI等）
+  - `clientValidator.js` - User-Agent验证逻辑
+  - `clients/` - 各客户端具体验证器实现
+- `src/models/redis.js` - Redis数据模型和操作封装
+- `src/utils/` - 工具函数
+  - `logger.js` - Winston日志系统
+  - `proxyHelper.js` - 代理配置和连接助手
+  - `oauthHelper.js` - OAuth PKCE流程实现
+  - `costCalculator.js` - Token费用计算
+- `config/config.js` - 应用配置（端口、Redis、系统参数）
+- `cli/` - 命令行工具
+- `scripts/` - 运维脚本（部署、管理、数据迁移）
+
+**前端结构（Vue 3 + Vite）**:
+
+- `web/admin-spa/src/` - 前端SPA源码
+  - `stores/theme.js` - Pinia主题状态管理
+  - `components/` - 可复用Vue组件
+  - `views/` - 页面组件
+  - `router/` - Vue Router路由配置
+  - `api/` - API请求封装（axios）
 
 ### 重要架构决策
 
@@ -372,12 +405,43 @@ npm run setup  # 自动生成密钥并创建管理员账户
 
 ### Redis 数据结构
 
-- **API Keys**: `api_key:{id}` (详细信息) + `api_key_hash:{hash}` (快速查找)
-- **Claude 账户**: `claude_account:{id}` (加密的 OAuth 数据)
-- **管理员**: `admin:{id}` + `admin_username:{username}` (用户名映射)
-- **会话**: `session:{token}` (JWT 会话管理)
-- **使用统计**: `usage:daily:{date}:{key}:{model}` (多维度统计)
-- **系统信息**: `system_info` (系统状态缓存)
+**认证和授权**:
+
+- `api_key:{id}` - API Key详细信息（名称、限制、统计等）
+- `api_key_hash:{hash}` - API Key哈希到ID的映射（O(1)查找优化）
+- `admin_credentials` - 管理员凭据（密码哈希）
+- `session:{token}` - JWT会话管理
+- `user:{id}` - 用户信息
+- `user_session:{token}` - 用户会话令牌
+
+**账户管理**:
+
+- `claude_account:{id}` - Claude账户（加密的OAuth数据）
+- `droid_account:{id}` - Droid账户（WorkOS OAuth数据）
+- `gemini_account:{id}` - Gemini账户（Google OAuth数据）
+- `openai_account:{id}` - OpenAI账户
+- `ccr_account:{id}` - CCR账户
+- `claude_console_account:{id}` - Claude Console账户
+- `account_group:{id}` - 账户分组配置
+
+**状态和限流**:
+
+- `claude_account:{id}:rate_limited` - 账户限流状态（TTL自动过期）
+- `droid_account:{id}:rate_limited` - Droid账户限流状态
+- `api_key:{id}:rate_limit` - API Key速率限制状态
+
+**统计和监控**:
+
+- `usage:daily:{date}:{key}:{model}` - 每日使用统计（按日期、Key、模型）
+- `cost:daily:{date}:{key}` - 每日费用统计
+- `cost:total:{key}` - 累计费用统计
+- `system_info` - 系统状态缓存
+- `claude_code_headers` - Claude Code客户端请求头缓存
+
+**会话粘性**:
+
+- `session_binding:{sessionId}` - 会话到账户的粘性绑定
+- `sticky_session:{sessionId}` - Droid账户粘性会话映射
 
 ### 流式响应处理
 
