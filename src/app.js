@@ -19,8 +19,10 @@ const webRoutes = require('./routes/web')
 const apiStatsRoutes = require('./routes/apiStats')
 const geminiRoutes = require('./routes/geminiRoutes')
 const openaiGeminiRoutes = require('./routes/openaiGeminiRoutes')
+const standardGeminiRoutes = require('./routes/standardGeminiRoutes')
 const openaiClaudeRoutes = require('./routes/openaiClaudeRoutes')
 const openaiRoutes = require('./routes/openaiRoutes')
+const droidRoutes = require('./routes/droidRoutes')
 const userRoutes = require('./routes/userRoutes')
 const azureOpenaiRoutes = require('./routes/azureOpenaiRoutes')
 const webhookRoutes = require('./routes/webhook')
@@ -179,7 +181,7 @@ class Application {
         next()
       })
 
-      // 🎨 Vue SPA 静态文件服务（必须在其他路由之前）
+      // 🎨 新版管理界面静态文件服务（必须在其他路由之前）
       const adminSpaPath = path.join(__dirname, '..', 'web', 'admin-spa', 'dist')
       logger.info(`📍 Admin SPA path resolved to: ${adminSpaPath}`)
       logger.info(`📂 Admin SPA path exists: ${fs.existsSync(adminSpaPath)}`)
