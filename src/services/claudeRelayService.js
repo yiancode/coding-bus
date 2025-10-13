@@ -91,7 +91,7 @@ class ClaudeRelayService {
 
   // 🔍 判断是否是真实的 Claude Code 请求
   isRealClaudeCodeRequest(requestBody) {
-    return ClaudeCodeValidator.hasClaudeCodeSystemPrompt(requestBody)
+    return ClaudeCodeValidator.includesClaudeCodeSystemPrompt(requestBody, 1)
   }
 
   // 🚀 转发请求到Claude API
@@ -1487,9 +1487,12 @@ class ClaudeRelayService {
 
             for (const line of lines) {
               // 解析SSE数据寻找usage信息
-              if (line.startsWith('data: ') && line.length > 6) {
+              if (line.startsWith('data:')) {
+                const jsonStr = line.slice(5).trimStart()
+                if (!jsonStr || jsonStr === '[DONE]') {
+                  continue
+                }
                 try {
-                  const jsonStr = line.slice(6)
                   const data = JSON.parse(jsonStr)
 
                   // 收集来自不同事件的usage数据
