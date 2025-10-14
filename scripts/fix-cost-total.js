@@ -139,7 +139,7 @@ async function checkAndFixApiKey(keyId, keyName) {
     console.log(`   月度费用总和: $${monthlyTotal.toFixed(4)}`)
     console.log(`   差异: $${diff.toFixed(4)}`)
     console.log(`   月度明细:`)
-    monthlyData.months.forEach(m => {
+    monthlyData.months.forEach((m) => {
       console.log(`     - ${m.month}: $${m.cost.toFixed(4)}`)
     })
 
@@ -160,7 +160,6 @@ async function checkAndFixApiKey(keyId, keyName) {
     }
 
     results.details.push(detail)
-
   } catch (error) {
     results.errors++
     console.error(`❌ 检查失败：${keyName} (${keyId})`, error.message)
@@ -194,7 +193,7 @@ async function main() {
     console.log(`📋 找到 ${apiKeyKeys.length} 个 API Key 相关的键\n`)
 
     // 过滤掉 hash_map
-    const validKeys = apiKeyKeys.filter(key => key !== 'apikey:hash_map')
+    const validKeys = apiKeyKeys.filter((key) => key !== 'apikey:hash_map')
     results.total = validKeys.length
 
     console.log(`开始检查 ${results.total} 个 API Key...\n`)
@@ -230,7 +229,6 @@ async function main() {
 
     // 退出码
     process.exit(results.errors > 0 ? 1 : 0)
-
   } catch (error) {
     console.error('\n❌ 脚本执行失败:', error)
     process.exit(1)
