@@ -597,9 +597,9 @@
                             variant="compact"
                           />
 
-                          <!-- 总费用限制进度条（无每日限制时展示） -->
+                          <!-- 总费用限制进度条 -->
                           <LimitProgressBar
-                            v-else-if="key.totalCostLimit > 0"
+                            v-if="key.totalCostLimit > 0"
                             :current="key.totalCost || 0"
                             label="总费用限制"
                             :limit="key.totalCostLimit"
@@ -1278,9 +1278,9 @@
                     variant="compact"
                   />
 
-                  <!-- 总费用限制（无每日限制时展示） -->
+                  <!-- 总费用限制 -->
                   <LimitProgressBar
-                    v-else-if="key.totalCostLimit > 0"
+                    v-if="key.totalCostLimit > 0"
                     :current="key.totalCost || 0"
                     label="总费用限制"
                     :limit="key.totalCostLimit"
