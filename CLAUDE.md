@@ -75,7 +75,7 @@ Coding Bus 是一个功能完整的 AI API 中转服务，支持 Claude 和 Gemi
 
 - **Claude服务链**:
   - `claudeAccountService.js`: OAuth账户管理和token刷新
-  - `claudeRelayService.js`: 请求转发和流式响应处理  
+  - `claudeRelayService.js`: 请求转发和流式响应处理
   - `unifiedClaudeScheduler.js`: 账户调度和负载均衡
 
 - **Gemini服务链**:
@@ -95,68 +95,79 @@ Coding Bus 是一个功能完整的 AI API 中转服务，支持 Claude 和 Gemi
 
 ## 常用命令
 
-### 基本开发命令
+### 开发工作流
+
+**首次设置：**
 
 ```bash
-# 安装依赖和初始化
-npm install
-npm run setup                  # 生成配置和管理员凭据
-npm run install:web           # 安装Web界面依赖
+npm install                   # 安装依赖
+cp config/config.example.js config/config.js
+cp .env.example .env
+npm run setup                 # 生成配置和管理员凭据
+npm run install:web          # 安装前端依赖
+npm run build:web            # 构建前端
+```
 
-# 开发和运行
-npm run dev                   # 开发模式（热重载，使用nodemon）
-npm start                     # 生产模式（执行lint后启动）
-npm test                      # 运行测试（Jest + SuperTest）
+**日常开发：**
+
+```bash
+npm run dev                   # 开发模式（nodemon 热重载）
 npm run lint                  # 代码检查并自动修复
-npm run lint:check            # 仅检查代码风格
+npm run format                # 格式化代码（提交前必做）
+npm test                      # 运行测试
+```
 
-# 代码格式化
-npm run format                # 格式化所有代码（Prettier）
-npm run format:check          # 检查代码格式但不修复
+**前端开发：**
 
-# Web界面开发
+```bash
 cd web/admin-spa
-npm run dev                   # 前端开发服务器
-npm run build                 # 构建前端
+npm run dev                   # 前端开发服务器（http://localhost:5173）
+npm run build                 # 构建生产版本
 npm run lint                  # 前端代码检查
+```
 
-# Docker部署
-docker-compose up -d          # 推荐方式
-docker-compose --profile monitoring up -d  # 包含监控
-npm run docker:build         # 构建Docker镜像
-npm run docker:up            # 启动Docker容器
-npm run docker:down          # 停止Docker容器
+**生产部署：**
 
-# 服务管理（生产环境推荐）
+```bash
 npm run service:start:daemon  # 后台启动（推荐）
-npm run service:start         # 前台启动
 npm run service:status        # 查看服务状态
 npm run service:logs          # 查看日志
-npm run service:logs:follow   # 实时跟踪日志
-npm run service:stop          # 停止服务
-npm run service:restart       # 重启服务
+npm run service:logs:follow   # 实时日志
 npm run service:restart:daemon # 后台重启
+npm run service:stop          # 停止服务
+```
 
-# 数据管理和迁移
-npm run data:export           # 导出所有Redis数据
-npm run data:import           # 导入Redis数据
-npm run data:export:sanitized # 导出数据（脱敏处理）
-npm run data:debug            # 调试Redis键
-npm run migrate:apikey-expiry # 迁移API Key过期时间
-npm run migrate:apikey-expiry:dry # 迁移预演（不实际执行）
+**Docker 部署：**
 
-# 价格和成本管理
-npm run update:pricing        # 更新模型价格数据
-npm run init:costs            # 初始化成本数据
-npm run test:pricing-fallback # 测试价格回退机制
+```bash
+docker-compose up -d          # 启动所有服务
+docker-compose logs -f        # 查看日志
+docker-compose restart        # 重启服务
+docker-compose down           # 停止并删除容器
+```
 
-# 系统监控和状态
-npm run monitor               # 增强监控脚本
-npm run status                # 统一状态检查
-npm run status:detail         # 详细状态信息
+**数据管理：**
+
+```bash
+npm run data:export           # 导出 Redis 数据
+npm run data:import           # 导入 Redis 数据
+npm run data:export:sanitized # 导出脱敏数据
+npm run migrate:apikey-expiry # 迁移 API Key 过期时间
+```
+
+**系统维护：**
+
+```bash
+npm run update:pricing        # 更新模型价格
+npm run cli status            # CLI 状态检查
+npm run status                # 系统状态（含 Redis）
+redis-cli ping                # 检查 Redis 连接
+```
 
 ### 开发环境配置
+
 必须配置的环境变量：
+
 - `JWT_SECRET`: JWT密钥（32字符以上随机字符串）
 - `ENCRYPTION_KEY`: 数据加密密钥（32字符固定长度）
 - `REDIS_HOST`: Redis主机地址（默认localhost）
@@ -164,6 +175,7 @@ npm run status:detail         # 详细状态信息
 - `REDIS_PASSWORD`: Redis密码（可选）
 
 初始化命令：
+
 ```bash
 cp config/config.example.js config/config.js
 cp .env.example .env
