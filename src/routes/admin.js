@@ -306,6 +306,8 @@ router.get('/api-keys', authenticateAdmin, async (req, res) => {
           // 添加格式化的费用到响应数据
           apiKey.usage.total.cost = totalCost
           apiKey.usage.total.formattedCost = CostCalculator.formatCost(totalCost)
+          // 同步更新 totalCost 字段（前端使用此字段）
+          apiKey.totalCost = totalCost
         }
       } else {
         // 7天、本月或自定义日期范围：重新计算统计数据
@@ -469,8 +471,12 @@ router.get('/api-keys', authenticateAdmin, async (req, res) => {
           formattedCost: CostCalculator.formatCost(totalCost)
         }
 
-        // 为了保持兼容性，也更新total字段
-        apiKey.usage.total = apiKey.usage[timeRange]
+        // 添加period字段用于前端显示时间段数据
+        apiKey.usage.period = apiKey.usage[timeRange]
+        apiKey.periodCost = totalCost // 时间段费用
+
+        // 不要覆盖total字段，保持总费用数据的完整性
+        // apiKey.usage.total保持不变，显示累计总数据
       }
     }
 
