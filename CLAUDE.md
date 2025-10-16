@@ -39,7 +39,10 @@ Coding Bus 是一个功能完整的 AI API 中转服务，支持 Claude 和 Gemi
 
 **调度和路由**:
 
-- **droidScheduler.js**: Droid账户调度器，支持粘性会话和专属绑定
+- **unifiedClaudeScheduler.js**: Claude账户统一调度器，支持账户分组、负载均衡和专属绑定
+- **unifiedGeminiScheduler.js**: Gemini账户统一调度器，支持轮询和优先级策略
+- **unifiedOpenAIScheduler.js**: OpenAI账户统一调度器
+- **droidScheduler.js**: Droid账户调度器，支持粘性会话和专属绑定（保留向后兼容）
 
 **核心工具服务**:
 
@@ -68,6 +71,14 @@ Coding Bus 是一个功能完整的 AI API 中转服务，支持 Claude 和 Gemi
 - **自动刷新**: 智能token过期检测和自动刷新机制
 - **代理支持**: OAuth授权和token交换全程支持代理配置
 - **安全存储**: claudeAiOauth数据加密存储，包含accessToken、refreshToken、scopes
+
+### 账户分组和调度策略
+
+- **账户分组**: 支持将多个账户组织成组，每个API Key可以绑定特定账户组
+- **专属绑定**: API Key可以独占特定账户，用于高优先级用户或特殊场景
+- **粘性会话**: 同一会话ID在请求间保持使用同一账户，确保上下文连续性（Droid账户）
+- **负载均衡**: 在账户组内自动轮询分配请求，避免单账户过载
+- **账户状态管理**: 自动跟踪账户限流状态，智能跳过不可用账户
 
 ### 多服务架构核心
 
@@ -114,7 +125,9 @@ npm run build:web            # 构建前端
 npm run dev                   # 开发模式（nodemon 热重载）
 npm run lint                  # 代码检查并自动修复
 npm run format                # 格式化代码（提交前必做）
-npm test                      # 运行测试
+npm test                      # 运行测试（Jest）
+npm test -- --watch           # 监听模式运行测试
+npm test -- path/to/test.js   # 运行单个测试文件
 ```
 
 **前端开发：**
@@ -162,6 +175,25 @@ npm run update:pricing        # 更新模型价格
 npm run cli status            # CLI 状态检查
 npm run status                # 系统状态（含 Redis）
 redis-cli ping                # 检查 Redis 连接
+```
+
+**调试和测试脚本：**
+
+```bash
+# 测试脚本（scripts/ 目录）
+node scripts/test-gemini-refresh.js       # 测试 Gemini token 刷新
+node scripts/test-pricing-fallback.js     # 测试定价降级机制
+node scripts/test-group-scheduling.js     # 测试账户分组调度
+node scripts/test-dedicated-accounts.js   # 测试专属账户绑定
+
+# 数据诊断和修复
+node scripts/debug-redis-keys.js          # 调试 Redis 数据结构
+node scripts/fix-cost-total.js            # 修复费用统计数据
+node scripts/fix-usage-stats.js           # 修复使用统计数据
+node scripts/check-redis-keys.js          # 检查 Redis 键完整性
+
+# 分析和监控
+node scripts/analyze-log-sessions.js      # 分析日志会话数据
 ```
 
 ### 开发环境配置
