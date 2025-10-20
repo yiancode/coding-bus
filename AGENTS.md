@@ -1,41 +1,39 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `src/`: Express server entry (`app.js`), with `routes/`, `services/`, `middleware/`, `utils/`, `validators/`, `models/`.
-- `cli/`: Interactive admin/ops CLI (`cli/index.js`).
-- `scripts/`: Maintenance and data tools (migration, status, tests helpers).
-- `config/`: App config (`config.js` from `config.example.js`).
-- `web/admin-spa/`: Optional admin UI (built assets served by backend).
-- `data/`, `logs/`, `prompt/`, `resources/`: Runtime data, logs, prompts, and assets.
+- `src/`: Express entry `app.js` with `routes/`, `services/`, `middleware/`, `utils/`, `validators/`, and `models/`; group new features under the relevant module.
+- `cli/`: interactive admin and operations tooling located at `cli/index.js`.
+- `scripts/`: maintenance utilities such as migrations, status probes, and test helpers.
+- `web/admin-spa/`: optional admin UI; build assets here before serving through the backend.
+- `config/`: copy `config.example.js` to `config.js` and keep environment-driven settings in sync with `.env`.
+- Runtime directories `data/`, `logs/`, `prompt/`, and `resources/` persist app data, logs, prompt text, and static assets respectively.
 
 ## Build, Test, and Development Commands
-- Quick start: `make setup && make dev` (copies `.env`/config, starts nodemon).
-- Install only: `npm install` and `npm run install:web` (for admin UI).
-- Run dev: `npm run dev` (hot reload). Production: `npm start`.
-- Lint/format: `npm run lint`, `npm run format` (Prettier + ESLint fix).
-- Tests: `npm test` (Jest). Coverage (optional): `npm test -- --coverage`.
-- Web build: `npm run build:web`.
-- Docker: `npm run docker:build`, `npm run docker:up`, `npm run docker:down`.
-- Service control: `npm run service:start:daemon`, `npm run service:status`, `npm run service:logs:follow`.
+- `make setup`: prepare local configuration (copy env/config templates) and install dependencies.
+- `make dev` or `npm run dev`: launch the development server with nodemon hot reload.
+- `npm test`: run the Jest suite; use `npm test -- --coverage` when verifying coverage targets.
+- `npm run lint` / `npm run format`: apply ESLint and Prettier autofixes; keep the working tree clean before PRs.
+- `npm run build:web`: compile the admin SPA; run prior to serving static assets in production.
 
 ## Coding Style & Naming Conventions
-- Language: Node.js ≥ `18`. Use `const`/`let`, avoid `var`.
-- Prettier: no semicolons, single quotes, width 100, 2‑space tabs.
-- ESLint: extends `eslint:recommended` + Prettier; enforce `eqeqeq`, `prefer-const`, arrow callbacks.
-- Filenames: camelCase for modules (e.g., `apiKeyService.js`), `kebab-case` for scripts.
-- Run `npm run lint` before pushing; CI expects clean lint.
+- Target Node.js 18+, use `const`/`let`, and avoid `var`.
+- Prettier is configured for 2-space indent, 100-character width, single quotes, and no semicolons.
+- ESLint extends `eslint:recommended` plus Prettier rules, enforcing `eqeqeq`, `prefer-const`, and arrow callbacks.
+- Name modules in camelCase (e.g., `apiKeyService.js`) and scripts in kebab-case.
 
 ## Testing Guidelines
-- Frameworks: Jest (+ Supertest for HTTP routes).
-- Location: co-locate as `*.test.js` or under `tests/` (e.g., `tests/openaiRoutes.test.js`).
-- Conventions: one concern per test file; mock Redis/external calls.
-- Run locally: `npm test`. Aim for ≥80% coverage where practical.
+- Jest is the primary framework; Supertest is available for HTTP routes.
+- Co-locate specs as `*.test.js` or place them under `tests/`; keep each file focused on one concern.
+- Mock Redis or external integrations to maintain deterministic runs and faster feedback loops.
+- Aim for ≥80% coverage on new code paths and document notable gaps in PR descriptions.
 
 ## Commit & Pull Request Guidelines
-- Commits: Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`). Keep messages imperative, concise.
-- PRs must include: clear description, linked issues, validation steps; attach screenshots for `web/` changes.
-- Before opening PR: `make test && npm run lint`; update `README.md`/examples if flags or envs change.
+- Follow Conventional Commits (e.g., `feat: add audit log route`); keep messages imperative and concise.
+- Before opening a PR, run `make test` and `npm run lint`; confirm the working tree remains clean.
+- Provide a clear description, link relevant issues, and attach admin UI screenshots when modifying `web/` assets.
+- Highlight configuration or migration changes and update examples in `README.md` when adding new environment variables.
 
 ## Security & Configuration Tips
-- Never commit secrets. Copy `.env.example` to `.env` and edit locally; update examples when adding new vars.
-- Update `config/config.js` from `config.example.js`; avoid logging secrets (`logs/`). Rotate API keys when testing.
+- Never commit secrets; copy `.env.example` to `.env` for local overrides.
+- Keep `config/config.js` aligned with checked-in templates and avoid logging sensitive values to `logs/`.
+- Rotate API keys after testing external integrations and remove temporary credentials from the repository.
