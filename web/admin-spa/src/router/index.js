@@ -5,7 +5,6 @@ import { useClerkStore } from '@/stores/clerk'
 import { APP_CONFIG } from '@/config/app'
 
 // 路由懒加载
-const LandingView = () => import('@/views/LandingView.vue')
 const DocsView = () => import('@/views/DocsView.vue')
 const LoginView = () => import('@/views/LoginView.vue')
 const UserLoginView = () => import('@/views/UserLoginView.vue')
@@ -24,9 +23,7 @@ const ApiStatsView = () => import('@/views/ApiStatsView.vue')
 const routes = [
   {
     path: '/',
-    name: 'Landing',
-    component: LandingView,
-    meta: { requiresAuth: false }
+    redirect: '/login'
   },
   {
     path: '/login',
@@ -211,12 +208,7 @@ router.beforeEach(async (to, from, next) => {
   }
 
   // 公开页面不需要认证，直接放行
-  if (
-    to.path === '/' ||
-    to.path === '/docs' ||
-    to.path === '/api-stats' ||
-    to.path.startsWith('/api-stats')
-  ) {
+  if (to.path === '/docs' || to.path === '/api-stats' || to.path.startsWith('/api-stats')) {
     next()
   } else if (to.path === '/user-login') {
     // 如果已经是用户登录状态，重定向到用户仪表板
