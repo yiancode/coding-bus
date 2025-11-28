@@ -1,4 +1,4 @@
-# Coding Bus
+# Claude Relay Service
 
 <div align="center">
 
@@ -6,8 +6,10 @@
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
 [![Redis](https://img.shields.io/badge/Redis-6+-red.svg)](https://redis.io/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
+[![Docker Build](https://github.com/Wei-Shaw/claude-relay-service/actions/workflows/auto-release-pipeline.yml/badge.svg)](https://github.com/Wei-Shaw/claude-relay-service/actions/workflows/auto-release-pipeline.yml)
+[![Docker Pulls](https://img.shields.io/docker/pulls/weishaw/claude-relay-service)](https://hub.docker.com/r/weishaw/claude-relay-service)
 
-**🚌 AI Coding 中转服务，支持多账户管理**
+**🔐 自行搭建Claude API中转服务，支持多账户管理**
 
 [English](README_EN.md) • [快速开始](https://pincc.ai/) • [演示站点](https://demo.pincc.ai/admin-next/login) • [公告频道](https://t.me/claude_relay_service)
 
@@ -15,9 +17,17 @@
 
 ---
 
-## 💬 技术交流与咨询
+## 💎 Claude/Codex 拼车服务推荐
 
-如有技术问题或需要部署协助，欢迎添加微信：**20133213**
+<div align="center">
+
+| 平台 | 类型 | 服务 | 介绍 |
+|:---|:---|:---|:---|
+| **[pincc.ai](https://pincc.ai/)** | 🏆 **官方运营** | <small>✅ Claude Code<br>✅ Codex CLI</small> | 项目直营，提供稳定的 Claude Code / Codex CLI 拼车服务 |
+| **[ctok.ai](https://ctok.ai/)** | 🤝 合作伙伴 | <small>✅ Claude Code<br>✅ Codex CLI</small> | 社区认证，提供 Claude Code / Codex CLI 拼车 |
+
+
+</div>
 
 ---
 
@@ -28,6 +38,84 @@
 🚨 **服务条款风险**: 使用本项目可能违反Anthropic的服务条款。请在使用前仔细阅读Anthropic的用户协议，使用本项目的一切风险由用户自行承担。
 
 📖 **免责声明**: 本项目仅供技术学习和研究使用，作者不对因使用本项目导致的账户封禁、服务中断或其他损失承担任何责任。
+
+
+## 🤔 这个项目适合你吗？
+
+- 🌍 **地区限制**: 所在地区无法直接访问Claude Code服务？
+- 🔒 **隐私担忧**: 担心第三方镜像服务会记录或泄露你的对话内容？
+- 👥 **成本分摊**: 想和朋友一起分摊Claude Code Max订阅费用？
+- ⚡ **稳定性**: 第三方镜像站经常故障不稳定，影响效率 ？
+
+如果有以上困惑，那这个项目可能适合你。
+
+### 适合的场景
+
+✅ **找朋友拼车**: 三五好友一起分摊Claude Code Max订阅  
+✅ **隐私敏感**: 不想让第三方镜像看到你的对话内容  
+✅ **技术折腾**: 有基本的技术基础，愿意自己搭建和维护  
+✅ **稳定需求**: 需要长期稳定的Claude访问，不想受制于镜像站  
+✅ **地区受限**: 无法直接访问Claude官方服务
+
+---
+
+## 💭 为什么要自己搭？
+
+### 现有镜像站可能的问题
+
+- 🕵️ **隐私风险**: 你的对话内容都被人家看得一清二楚，商业机密什么的就别想了
+- 🐌 **性能不稳**: 用的人多了就慢，高峰期经常卡死
+- 💰 **价格不透明**: 不知道实际成本
+
+### 自建的好处
+
+- 🔐 **数据安全**: 所有接口请求都只经过你自己的服务器，直连Anthropic API
+- ⚡ **性能可控**: 就你们几个人用，Max 200刀套餐基本上可以爽用Opus
+- 💰 **成本透明**: 用了多少token一目了然，按官方价格换算了具体费用
+- 📊 **监控完整**: 使用情况、成本分析、性能监控全都有
+
+---
+
+## 🚀 核心功能
+
+### 基础功能
+
+- ✅ **多账户管理**: 可以添加多个Claude账户自动轮换
+- ✅ **自定义API Key**: 给每个人分配独立的Key
+- ✅ **使用统计**: 详细记录每个人用了多少token
+
+### 高级功能
+
+- 🔄 **智能切换**: 账户出问题自动换下一个
+- 🚀 **性能优化**: 连接池、缓存，减少延迟
+- 📊 **监控面板**: Web界面查看所有数据
+- 🛡️ **安全控制**: 访问限制、速率控制、客户端限制
+- 🌐 **代理支持**: 支持HTTP/SOCKS5代理
+
+---
+
+## 📋 部署要求
+
+### 硬件要求（最低配置）
+
+- **CPU**: 1核心就够了
+- **内存**: 512MB（建议1GB）
+- **硬盘**: 30GB可用空间
+- **网络**: 能访问到Anthropic API（建议使用US地区的机器）
+- **建议**: 2核4G的基本够了，网络尽量选回国线路快一点的（为了提高速度，建议不要开代理或者设置服务器的IP直连）
+- **经验**: 阿里云、腾讯云的海外主机经测试会被Cloudflare拦截，无法直接访问claude api
+
+### 软件要求
+
+- **Node.js** 18或更高版本
+- **Redis** 6或更高版本
+- **操作系统**: 建议Linux
+
+### 费用估算
+
+- **服务器**: 轻量云服务器，一个月30-60块
+- **Claude订阅**: 看你怎么分摊了
+- **其他**: 域名（可选）
 
 ---
 
@@ -858,37 +946,24 @@ proxy_request_buffering off;
 
 ---
 
-## 📜 版本历史
+## ❤️ 赞助支持
 
-记录每一次进步，见证项目成长 🚀
+如果您觉得这个项目对您有帮助，请考虑赞助支持项目的持续开发。您的支持是我们最大的动力！
 
-### v1.1.165 (2025-10-10)
-- 🎨 项目重命名为 Coding Bus
-- 📝 优化文档结构，简化部署流程说明
-- 🐛 修复已知问题
+<div align="center">
 
-### v1.1.164 (2025-10-09)
-- ⚡ 增加 OpenAI 转发 API Key 速率限制功能
-- 🔧 优化 Redis 连接池管理
-- 📊 改进使用统计数据记录
+<a href="https://afdian.com/a/claude-relay-service" target="_blank">
+  <img src="https://img.shields.io/badge/请我喝杯咖啡-爱发电-946ce6?style=for-the-badge&logo=buy-me-a-coffee&logoColor=white" alt="Sponsor">
+</a>
 
-### v1.1.x - v1.1.163
-- 🚀 持续优化性能和稳定性
-- 🛡️ 加强安全防护机制
-- 📱 完善 Web 管理界面
-- 🌐 扩展代理支持能力
-- 🔄 优化账户轮换策略
-- 📈 增强监控和日志系统
+<table>
+  <tr>
+    <td><img src="docs/sponsoring/wechat.jpg" width="200" alt="wechat" /></td>
+    <td><img src="docs/sponsoring/alipay.jpg" width="200" alt="alipay" /></td>
+  </tr>
+</table>
 
-### v1.0.0 (项目初始版本)
-- ✨ 基础架构搭建
-- 🔐 实现多账户管理系统
-- 🔑 支持自定义 API Key
-- 📊 基础使用统计功能
-- 🌐 HTTP/SOCKS5 代理支持
-- 💻 Web 管理界面
-
-> 💡 更详细的更新日志请查看 [GitHub Releases](https://github.com/yiancode/coding-bus/releases)
+</div>
 
 ---
 
@@ -903,7 +978,5 @@ proxy_request_buffering off;
 **⭐ 觉得有用的话给个Star呗，这是对作者最大的鼓励！**
 
 **🤝 有问题欢迎提Issue，有改进建议欢迎PR**
-
-**💬 技术交流请添加微信：20133213**
 
 </div>
