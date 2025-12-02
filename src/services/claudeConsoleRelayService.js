@@ -1,5 +1,7 @@
 const axios = require('axios')
+const { v4: uuidv4 } = require('uuid')
 const claudeConsoleAccountService = require('./claudeConsoleAccountService')
+const redis = require('../models/redis')
 const logger = require('../utils/logger')
 const config = require('../../config/config')
 const {
@@ -10,7 +12,7 @@ const {
 
 class ClaudeConsoleRelayService {
   constructor() {
-    this.defaultUserAgent = 'claude-cli/1.0.69 (external, cli)'
+    this.defaultUserAgent = 'claude-cli/2.0.52 (external, cli)'
   }
 
   // 🚀 转发请求到Claude Console API
@@ -25,6 +27,8 @@ class ClaudeConsoleRelayService {
   ) {
     let abortController = null
     let account = null
+    const requestId = uuidv4() // 用于并发追踪
+    let concurrencyAcquired = false
 
     try {
       // 获取账户信息
@@ -34,8 +38,37 @@ class ClaudeConsoleRelayService {
       }
 
       logger.info(
-        `📤 Processing Claude Console API request for key: ${apiKeyData.name || apiKeyData.id}, account: ${account.name} (${accountId})`
+        `📤 Processing Claude Console API request for key: ${apiKeyData.name || apiKeyData.id}, account: ${account.name} (${accountId}), request: ${requestId}`
       )
+
+      // 🔒 并发控制：原子性抢占槽位
+      if (account.maxConcurrentTasks > 0) {
+        // 先抢占，再检查 - 避免竞态条件
+        const newConcurrency = Number(
+          await redis.incrConsoleAccountConcurrency(accountId, requestId, 600)
+        )
+        concurrencyAcquired = true
+
+        // 检查是否超过限制
+        if (newConcurrency > account.maxConcurrentTasks) {
+          // 超限，立即回滚
+          await redis.decrConsoleAccountConcurrency(accountId, requestId)
+          concurrencyAcquired = false
+
+          logger.warn(
+            `⚠️ Console account ${account.name} (${accountId}) concurrency limit exceeded: ${newConcurrency}/${account.maxConcurrentTasks} (request: ${requestId}, rolled back)`
+          )
+
+          const error = new Error('Console account concurrency limit reached')
+          error.code = 'CONSOLE_ACCOUNT_CONCURRENCY_FULL'
+          error.accountId = accountId
+          throw error
+        }
+
+        logger.debug(
+          `🔓 Acquired concurrency slot for account ${account.name} (${accountId}), current: ${newConcurrency}/${account.maxConcurrentTasks}, request: ${requestId}`
+        )
+      }
       logger.debug(`🌐 Account API URL: ${account.apiUrl}`)
       logger.debug(`🔍 Account supportedModels: ${JSON.stringify(account.supportedModels)}`)
       logger.debug(`🔑 Account has apiKey: ${!!account.apiKey}`)
@@ -284,7 +317,12 @@ class ClaudeConsoleRelayService {
       }
     } catch (error) {
       // 处理特定错误
-      if (error.name === 'AbortError' || error.code === 'ECONNABORTED') {
+      if (
+        error.name === 'AbortError' ||
+        error.name === 'CanceledError' ||
+        error.code === 'ECONNABORTED' ||
+        error.code === 'ERR_CANCELED'
+      ) {
         logger.info('Request aborted due to client disconnect')
         throw new Error('Client disconnected')
       }
@@ -297,6 +335,21 @@ class ClaudeConsoleRelayService {
       // 不再因为模型不支持而block账号
 
       throw error
+    } finally {
+      // 🔓 并发控制：释放并发槽位
+      if (concurrencyAcquired) {
+        try {
+          await redis.decrConsoleAccountConcurrency(accountId, requestId)
+          logger.debug(
+            `🔓 Released concurrency slot for account ${account?.name || accountId}, request: ${requestId}`
+          )
+        } catch (releaseError) {
+          logger.error(
+            `❌ Failed to release concurrency slot for account ${accountId}, request: ${requestId}:`,
+            releaseError.message
+          )
+        }
+      }
     }
   }
 
@@ -312,6 +365,10 @@ class ClaudeConsoleRelayService {
     options = {}
   ) {
     let account = null
+    const requestId = uuidv4() // 用于并发追踪
+    let concurrencyAcquired = false
+    let leaseRefreshInterval = null // 租约刷新定时器
+
     try {
       // 获取账户信息
       account = await claudeConsoleAccountService.getAccount(accountId)
@@ -320,8 +377,56 @@ class ClaudeConsoleRelayService {
       }
 
       logger.info(
-        `📡 Processing streaming Claude Console API request for key: ${apiKeyData.name || apiKeyData.id}, account: ${account.name} (${accountId})`
+        `📡 Processing streaming Claude Console API request for key: ${apiKeyData.name || apiKeyData.id}, account: ${account.name} (${accountId}), request: ${requestId}`
       )
+
+      // 🔒 并发控制：原子性抢占槽位
+      if (account.maxConcurrentTasks > 0) {
+        // 先抢占，再检查 - 避免竞态条件
+        const newConcurrency = Number(
+          await redis.incrConsoleAccountConcurrency(accountId, requestId, 600)
+        )
+        concurrencyAcquired = true
+
+        // 检查是否超过限制
+        if (newConcurrency > account.maxConcurrentTasks) {
+          // 超限，立即回滚
+          await redis.decrConsoleAccountConcurrency(accountId, requestId)
+          concurrencyAcquired = false
+
+          logger.warn(
+            `⚠️ Console account ${account.name} (${accountId}) concurrency limit exceeded: ${newConcurrency}/${account.maxConcurrentTasks} (stream request: ${requestId}, rolled back)`
+          )
+
+          const error = new Error('Console account concurrency limit reached')
+          error.code = 'CONSOLE_ACCOUNT_CONCURRENCY_FULL'
+          error.accountId = accountId
+          throw error
+        }
+
+        logger.debug(
+          `🔓 Acquired concurrency slot for stream account ${account.name} (${accountId}), current: ${newConcurrency}/${account.maxConcurrentTasks}, request: ${requestId}`
+        )
+
+        // 🔄 启动租约刷新定时器（每5分钟刷新一次，防止长连接租约过期）
+        leaseRefreshInterval = setInterval(
+          async () => {
+            try {
+              await redis.refreshConsoleAccountConcurrencyLease(accountId, requestId, 600)
+              logger.debug(
+                `🔄 Refreshed concurrency lease for stream account ${account.name} (${accountId}), request: ${requestId}`
+              )
+            } catch (refreshError) {
+              logger.error(
+                `❌ Failed to refresh concurrency lease for account ${accountId}, request: ${requestId}:`,
+                refreshError.message
+              )
+            }
+          },
+          5 * 60 * 1000
+        ) // 5分钟刷新一次
+      }
+
       logger.debug(`🌐 Account API URL: ${account.apiUrl}`)
 
       // 处理模型映射
@@ -373,6 +478,29 @@ class ClaudeConsoleRelayService {
         error
       )
       throw error
+    } finally {
+      // 🛑 清理租约刷新定时器
+      if (leaseRefreshInterval) {
+        clearInterval(leaseRefreshInterval)
+        logger.debug(
+          `🛑 Cleared lease refresh interval for stream account ${account?.name || accountId}, request: ${requestId}`
+        )
+      }
+
+      // 🔓 并发控制:释放并发槽位
+      if (concurrencyAcquired) {
+        try {
+          await redis.decrConsoleAccountConcurrency(accountId, requestId)
+          logger.debug(
+            `🔓 Released concurrency slot for stream account ${account?.name || accountId}, request: ${requestId}`
+          )
+        } catch (releaseError) {
+          logger.error(
+            `❌ Failed to release concurrency slot for stream account ${accountId}, request: ${requestId}:`,
+            releaseError.message
+          )
+        }
+      }
     }
   }
 
@@ -684,7 +812,9 @@ class ClaudeConsoleRelayService {
                             '🎯 [Console] Complete usage data collected:',
                             JSON.stringify(collectedUsageData)
                           )
-                          usageCallback({ ...collectedUsageData, accountId })
+                          if (usageCallback && typeof usageCallback === 'function') {
+                            usageCallback({ ...collectedUsageData, accountId })
+                          }
                           finalUsageReported = true
                         }
                       }
@@ -702,14 +832,21 @@ class ClaudeConsoleRelayService {
                 error
               )
               if (!responseStream.destroyed) {
-                responseStream.write('event: error\n')
-                responseStream.write(
-                  `data: ${JSON.stringify({
-                    error: 'Stream processing error',
-                    message: error.message,
-                    timestamp: new Date().toISOString()
-                  })}\n\n`
-                )
+                // 如果有 streamTransformer（如测试请求），使用前端期望的格式
+                if (streamTransformer) {
+                  responseStream.write(
+                    `data: ${JSON.stringify({ type: 'error', error: error.message })}\n\n`
+                  )
+                } else {
+                  responseStream.write('event: error\n')
+                  responseStream.write(
+                    `data: ${JSON.stringify({
+                      error: 'Stream processing error',
+                      message: error.message,
+                      timestamp: new Date().toISOString()
+                    })}\n\n`
+                  )
+                }
               }
             }
           })
@@ -754,7 +891,9 @@ class ClaudeConsoleRelayService {
                   logger.info(
                     `📊 [Console] Saving incomplete usage data via fallback: ${JSON.stringify(collectedUsageData)}`
                   )
-                  usageCallback({ ...collectedUsageData, accountId })
+                  if (usageCallback && typeof usageCallback === 'function') {
+                    usageCallback({ ...collectedUsageData, accountId })
+                  }
                   finalUsageReported = true
                 } else {
                   logger.warn(
@@ -782,14 +921,21 @@ class ClaudeConsoleRelayService {
               error
             )
             if (!responseStream.destroyed) {
-              responseStream.write('event: error\n')
-              responseStream.write(
-                `data: ${JSON.stringify({
-                  error: 'Stream error',
-                  message: error.message,
-                  timestamp: new Date().toISOString()
-                })}\n\n`
-              )
+              // 如果有 streamTransformer（如测试请求），使用前端期望的格式
+              if (streamTransformer) {
+                responseStream.write(
+                  `data: ${JSON.stringify({ type: 'error', error: error.message })}\n\n`
+                )
+              } else {
+                responseStream.write('event: error\n')
+                responseStream.write(
+                  `data: ${JSON.stringify({
+                    error: 'Stream error',
+                    message: error.message,
+                    timestamp: new Date().toISOString()
+                  })}\n\n`
+                )
+              }
               responseStream.end()
             }
             reject(error)
@@ -830,14 +976,21 @@ class ClaudeConsoleRelayService {
           }
 
           if (!responseStream.destroyed) {
-            responseStream.write('event: error\n')
-            responseStream.write(
-              `data: ${JSON.stringify({
-                error: error.message,
-                code: error.code,
-                timestamp: new Date().toISOString()
-              })}\n\n`
-            )
+            // 如果有 streamTransformer（如测试请求），使用前端期望的格式
+            if (streamTransformer) {
+              responseStream.write(
+                `data: ${JSON.stringify({ type: 'error', error: error.message })}\n\n`
+              )
+            } else {
+              responseStream.write('event: error\n')
+              responseStream.write(
+                `data: ${JSON.stringify({
+                  error: error.message,
+                  code: error.code,
+                  timestamp: new Date().toISOString()
+                })}\n\n`
+              )
+            }
             responseStream.end()
           }
 
@@ -898,6 +1051,106 @@ class ClaudeConsoleRelayService {
         `⚠️ Failed to update last used time for Claude Console account ${accountId}:`,
         error.message
       )
+    }
+  }
+
+  // 🧪 创建测试用的流转换器，将 Claude API SSE 格式转换为前端期望的格式
+  _createTestStreamTransformer() {
+    let testStartSent = false
+
+    return (rawData) => {
+      const lines = rawData.split('\n')
+      const outputLines = []
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) {
+          // 保留空行用于 SSE 分隔
+          if (line.trim() === '') {
+            outputLines.push('')
+          }
+          continue
+        }
+
+        const jsonStr = line.substring(6).trim()
+        if (!jsonStr || jsonStr === '[DONE]') {
+          continue
+        }
+
+        try {
+          const data = JSON.parse(jsonStr)
+
+          // 发送 test_start 事件（只在第一次 message_start 时发送）
+          if (data.type === 'message_start' && !testStartSent) {
+            testStartSent = true
+            outputLines.push(`data: ${JSON.stringify({ type: 'test_start' })}`)
+            outputLines.push('')
+          }
+
+          // 转换 content_block_delta 为 content
+          if (data.type === 'content_block_delta' && data.delta && data.delta.text) {
+            outputLines.push(`data: ${JSON.stringify({ type: 'content', text: data.delta.text })}`)
+            outputLines.push('')
+          }
+
+          // 转换 message_stop 为 test_complete
+          if (data.type === 'message_stop') {
+            outputLines.push(`data: ${JSON.stringify({ type: 'test_complete', success: true })}`)
+            outputLines.push('')
+          }
+
+          // 处理错误事件
+          if (data.type === 'error') {
+            const errorMsg = data.error?.message || data.message || '未知错误'
+            outputLines.push(`data: ${JSON.stringify({ type: 'error', error: errorMsg })}`)
+            outputLines.push('')
+          }
+        } catch {
+          // 忽略解析错误
+        }
+      }
+
+      return outputLines.length > 0 ? outputLines.join('\n') : null
+    }
+  }
+
+  // 🧪 测试账号连接（供Admin API使用）
+  async testAccountConnection(accountId, responseStream) {
+    const { sendStreamTestRequest } = require('../utils/testPayloadHelper')
+
+    try {
+      const account = await claudeConsoleAccountService.getAccount(accountId)
+      if (!account) {
+        throw new Error('Account not found')
+      }
+
+      logger.info(`🧪 Testing Claude Console account connection: ${account.name} (${accountId})`)
+
+      const cleanUrl = account.apiUrl.replace(/\/$/, '')
+      const apiUrl = cleanUrl.endsWith('/v1/messages')
+        ? cleanUrl
+        : `${cleanUrl}/v1/messages?beta=true`
+
+      await sendStreamTestRequest({
+        apiUrl,
+        authorization: `Bearer ${account.apiKey}`,
+        responseStream,
+        proxyAgent: claudeConsoleAccountService._createProxyAgent(account.proxy),
+        extraHeaders: account.userAgent ? { 'User-Agent': account.userAgent } : {}
+      })
+    } catch (error) {
+      logger.error(`❌ Test account connection failed:`, error)
+      if (!responseStream.headersSent) {
+        responseStream.writeHead(200, {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache'
+        })
+      }
+      if (!responseStream.destroyed && !responseStream.writableEnded) {
+        responseStream.write(
+          `data: ${JSON.stringify({ type: 'test_complete', success: false, error: error.message })}\n\n`
+        )
+        responseStream.end()
+      }
     }
   }
 
