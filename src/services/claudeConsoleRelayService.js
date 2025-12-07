@@ -7,7 +7,8 @@ const config = require('../../config/config')
 const {
   sanitizeUpstreamError,
   sanitizeErrorMessage,
-  isAccountDisabledError
+  isAccountDisabledError,
+  sanitizeNetworkError
 } = require('../utils/errorSanitizer')
 
 class ClaudeConsoleRelayService {
@@ -343,14 +344,15 @@ class ClaudeConsoleRelayService {
         throw new Error('Client disconnected')
       }
 
+      // 记录原始错误到日志（用于调试）
       logger.error(
         `❌ Claude Console relay request failed (Account: ${account?.name || accountId}):`,
         error.message
       )
 
-      // 不再因为模型不支持而block账号
-
-      throw error
+      // 脱敏网络错误后再抛出
+      const sanitizedError = sanitizeNetworkError(error)
+      throw sanitizedError
     } finally {
       // 🔓 并发控制：释放并发槽位
       if (concurrencyAcquired) {
@@ -861,22 +863,27 @@ class ClaudeConsoleRelayService {
                 }
               }
             } catch (error) {
+              // 记录原始错误到日志（用于调试）
               logger.error(
                 `❌ Error processing Claude Console stream data (Account: ${account?.name || accountId}):`,
-                error
+                error.message
               )
+
+              // 脱敏错误消息
+              const sanitizedError = sanitizeNetworkError(error)
+
               if (!responseStream.destroyed) {
                 // 如果有 streamTransformer（如测试请求），使用前端期望的格式
                 if (streamTransformer) {
                   responseStream.write(
-                    `data: ${JSON.stringify({ type: 'error', error: error.message })}\n\n`
+                    `data: ${JSON.stringify({ type: 'error', error: sanitizedError.message })}\n\n`
                   )
                 } else {
                   responseStream.write('event: error\n')
                   responseStream.write(
                     `data: ${JSON.stringify({
-                      error: 'Stream processing error',
-                      message: error.message,
+                      error: sanitizedError.message,
+                      code: sanitizedError.code,
                       timestamp: new Date().toISOString()
                     })}\n\n`
                   )
@@ -950,29 +957,34 @@ class ClaudeConsoleRelayService {
           })
 
           response.data.on('error', (error) => {
+            // 记录原始错误到日志（用于调试）
             logger.error(
               `❌ Claude Console stream error (Account: ${account?.name || accountId}):`,
-              error
+              error.message
             )
+
+            // 脱敏错误消息
+            const sanitizedError = sanitizeNetworkError(error)
+
             if (!responseStream.destroyed) {
               // 如果有 streamTransformer（如测试请求），使用前端期望的格式
               if (streamTransformer) {
                 responseStream.write(
-                  `data: ${JSON.stringify({ type: 'error', error: error.message })}\n\n`
+                  `data: ${JSON.stringify({ type: 'error', error: sanitizedError.message })}\n\n`
                 )
               } else {
                 responseStream.write('event: error\n')
                 responseStream.write(
                   `data: ${JSON.stringify({
-                    error: 'Stream error',
-                    message: error.message,
+                    error: sanitizedError.message,
+                    code: sanitizedError.code,
                     timestamp: new Date().toISOString()
                   })}\n\n`
                 )
               }
               responseStream.end()
             }
-            reject(error)
+            reject(sanitizedError)
           })
         })
         .catch((error) => {
@@ -980,10 +992,14 @@ class ClaudeConsoleRelayService {
             return
           }
 
+          // 记录原始错误到日志（用于调试）
           logger.error(
             `❌ Claude Console stream request error (Account: ${account?.name || accountId}):`,
             error.message
           )
+
+          // 脱敏错误消息
+          const sanitizedError = sanitizeNetworkError(error)
 
           // 检查错误状态
           if (error.response) {
@@ -1013,14 +1029,14 @@ class ClaudeConsoleRelayService {
             // 如果有 streamTransformer（如测试请求），使用前端期望的格式
             if (streamTransformer) {
               responseStream.write(
-                `data: ${JSON.stringify({ type: 'error', error: error.message })}\n\n`
+                `data: ${JSON.stringify({ type: 'error', error: sanitizedError.message })}\n\n`
               )
             } else {
               responseStream.write('event: error\n')
               responseStream.write(
                 `data: ${JSON.stringify({
-                  error: error.message,
-                  code: error.code,
+                  error: sanitizedError.message,
+                  code: sanitizedError.code,
                   timestamp: new Date().toISOString()
                 })}\n\n`
               )
@@ -1028,7 +1044,7 @@ class ClaudeConsoleRelayService {
             responseStream.end()
           }
 
-          reject(error)
+          reject(sanitizedError)
         })
 
       // 处理客户端断开连接

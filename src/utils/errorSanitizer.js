@@ -156,9 +156,48 @@ function isAccountDisabledError(statusCode, body) {
   )
 }
 
+/**
+ * 脱敏网络连接错误，移除敏感的 URL 和主机信息
+ * @param {Error} error - 网络连接错误对象（如 axios 错误）
+ * @returns {Error} - 脱敏后的错误对象
+ */
+function sanitizeNetworkError(error) {
+  if (!error) {
+    return error
+  }
+
+  // 创建新的错误对象，避免修改原始错误
+  const sanitizedError = new Error()
+
+  // 根据错误类型生成通用错误消息
+  if (error.code === 'ETIMEDOUT') {
+    sanitizedError.message = 'Upstream service connection timeout'
+  } else if (error.code === 'ENETUNREACH') {
+    sanitizedError.message = 'Upstream service network unreachable'
+  } else if (error.code === 'ECONNREFUSED') {
+    sanitizedError.message = 'Upstream service connection refused'
+  } else if (error.code === 'ENOTFOUND') {
+    sanitizedError.message = 'Upstream service host not found'
+  } else if (error.message) {
+    // 对于其他错误，清理错误消息中的 URL
+    sanitizedError.message = sanitizeErrorMessage(error.message)
+  } else {
+    sanitizedError.message = 'Upstream service connection error'
+  }
+
+  // 保留错误代码（不含敏感信息）
+  sanitizedError.code = error.code
+
+  // 保留错误名称
+  sanitizedError.name = error.name || 'NetworkError'
+
+  return sanitizedError
+}
+
 module.exports = {
   sanitizeErrorMessage,
   sanitizeUpstreamError,
   extractErrorMessage,
-  isAccountDisabledError
+  isAccountDisabledError,
+  sanitizeNetworkError
 }

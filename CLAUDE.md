@@ -18,7 +18,8 @@ npm run build:web              # 构建前端
 # 开发和运行
 npm run dev                    # 开发模式（热重载）
 npm start                      # 生产模式（含lint）
-npm test                       # 运行测试
+npm test                       # 运行所有测试
+npm test -- --testPathPattern="apiKey"  # 运行匹配的测试文件
 npm run lint                   # ESLint代码检查并修复
 npm run lint:check             # ESLint检查（不修复）
 npm run format                 # Prettier格式化
@@ -165,6 +166,16 @@ data/init.json             # 管理员凭据
 - 重用现有的服务和工具函数
 - 遵循现有的错误处理和日志记录模式
 - 敏感数据必须使用加密存储（参考 claudeAccountService.js）
+
+### ESLint 强制规则
+
+后端代码必须遵循以下规则（配置在 `.eslintrc.cjs`）：
+- 使用 `const`/`let`，禁止 `var`
+- 使用 `===` 严格相等
+- 使用对象解构 `const { a } = obj`
+- 使用模板字符串 `` `${var}` `` 而非字符串拼接
+- 使用箭头函数作为回调
+- 未使用变量以 `_` 开头可忽略：`_unused`
 
 ### 调试和验证
 
