@@ -15,6 +15,10 @@ const DEFAULT_CONFIG = {
   globalSessionBindingEnabled: false,
   sessionBindingErrorMessage: '你的本地session已污染，请清理后使用。',
   sessionBindingTtlDays: 30, // 会话绑定 TTL（天），默认30天
+  // 用户消息队列配置
+  userMessageQueueEnabled: false, // 是否启用用户消息队列（默认关闭）
+  userMessageQueueDelayMs: 100, // 请求间隔（毫秒）
+  userMessageQueueTimeoutMs: 60000, // 队列超时（毫秒）
   updatedAt: null,
   updatedBy: null
 }
@@ -283,12 +287,13 @@ class ClaudeRelayConfigService {
 
       const account = await accountService.getAccount(accountId)
 
-      if (!account || !account.success || !account.data) {
+      // getAccount() 直接返回账户数据对象或 null，不是 { success, data } 格式
+      if (!account) {
         logger.warn(`Session binding account not found: ${accountId} (${accountType})`)
         return false
       }
 
-      const accountData = account.data
+      const accountData = account
 
       // 检查账户是否激活
       if (accountData.isActive === false || accountData.isActive === 'false') {
