@@ -733,6 +733,66 @@ class ClaudeConsoleAccountService {
     }
   }
 
+  // 💸 标记账号为余额不足状态（402错误 - insufficient_quota）
+  async markAccountInsufficientQuota(accountId, errorDetails = '') {
+    try {
+      const client = redis.getClientSafe()
+      const account = await this.getAccount(accountId)
+
+      if (!account) {
+        throw new Error('Account not found')
+      }
+
+      // 检查账户是否已经是配额不足状态，避免重复处理
+      if (account.quotaStoppedAt && account.status === 'quota_exceeded') {
+        logger.info(
+          `ℹ️ Claude Console account ${account.name} (${accountId}) is already marked as quota exceeded, skipping`
+        )
+        return { success: true, skipped: true }
+      }
+
+      const updates = {
+        quotaStoppedAt: new Date().toISOString(),
+        isActive: 'false', // 禁用账户
+        schedulable: 'false', // 停止调度
+        status: 'quota_exceeded', // 设置状态
+        errorMessage: 'API返回402错误：余额不足（insufficient_quota）',
+        // 使用独立的配额不足自动停止标记
+        quotaAutoStopped: 'true'
+      }
+
+      await client.hset(`${this.ACCOUNT_KEY_PREFIX}${accountId}`, updates)
+
+      // 发送Webhook通知
+      try {
+        const webhookNotifier = require('../utils/webhookNotifier')
+        await webhookNotifier.sendAccountAnomalyNotification({
+          accountId,
+          accountName: account.name || 'Claude Console Account',
+          platform: 'claude-console',
+          status: 'error',
+          errorCode: 'CLAUDE_CONSOLE_INSUFFICIENT_QUOTA',
+          reason: 'API返回402错误：余额不足（insufficient_quota），账户已被禁用并停止调度',
+          errorDetails: errorDetails || '无错误详情',
+          timestamp: new Date().toISOString()
+        })
+      } catch (webhookError) {
+        logger.error('Failed to send insufficient quota webhook notification:', webhookError)
+      }
+
+      logger.warn(
+        `💸 Claude Console account marked as insufficient quota (402): ${account.name} (${accountId})`
+      )
+      return { success: true }
+    } catch (error) {
+      logger.error(
+        `❌ Failed to mark Claude Console account as insufficient quota: ${accountId}`,
+        error
+      )
+      throw error
+    }
+  }
+
   // 🚫 标记账号为临时封禁状态（400错误 - 账户临时禁用）
   async markConsoleAccountBlocked(accountId, errorDetails = '') {
     try {

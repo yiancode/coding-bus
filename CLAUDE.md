@@ -155,12 +155,21 @@ npm run install:web           # 安装Web界面依赖
 # 开发和运行
 npm run dev                   # 开发模式（热重载）
 npm start                     # 生产模式
-npm test                      # 运行测试
+npm test                      # 运行所有测试
+npm test -- --verbose         # 详细输出
+npm test -- concurrencyQueue  # 运行特定测试文件
+npm test -- --watch          # 监视模式运行测试
 npm run lint                  # 代码检查
+npm run lint:check           # 仅检查不自动修复
+npm run format               # 格式化所有代码
+npm run format:check         # 检查代码格式
 
 # Docker部署
 docker-compose up -d          # 推荐方式
 docker-compose --profile monitoring up -d  # 包含监控
+npm run docker:build         # 构建Docker镜像
+npm run docker:up            # 启动Docker Compose服务
+npm run docker:down          # 停止Docker Compose服务
 
 # 服务管理
 npm run service:start:daemon  # 后台启动（推荐）
@@ -214,6 +223,22 @@ npm run service:stop          # 停止服务
 cp config/config.example.js config/config.js
 cp .env.example .env
 npm run setup  # 自动生成密钥并创建管理员账户
+```
+
+### 前端开发命令
+
+```bash
+# 前端开发（在 web/admin-spa/ 目录下）
+cd web/admin-spa
+npm run dev                   # 启动开发服务器（热重载）
+npm run build                # 构建生产版本
+npm run preview              # 预览生产构建
+npm run lint                 # 前端代码检查
+npm run format               # 格式化前端代码
+
+# 从项目根目录构建前端
+npm run build:web            # 构建Web界面（使用VITE_APP_BASE_URL=/admin-next/）
+npm run install:web          # 安装Web界面依赖
 ```
 
 ## Web界面功能
@@ -422,10 +447,16 @@ npm run setup  # 自动生成密钥并创建管理员账户
 ### 测试和质量保证
 
 - 运行 `npm run lint` 进行代码风格检查（使用 ESLint）
+- 运行 `npm run lint:check` 仅检查不自动修复
+- 运行 `npm run format` 格式化所有代码（使用 Prettier）
+- 运行 `npm run format:check` 检查代码格式
 - 运行 `npm test` 执行测试套件（Jest + SuperTest 配置）
+  - 运行 `npm test -- <test-name>` 执行特定测试
+  - 运行 `npm test -- --watch` 监视模式
+  - 运行 `npm test -- --verbose` 详细输出
+- 当前测试覆盖：并发队列测试（concurrencyQueue.test.js）、用户消息队列测试（userMessageQueue.test.js）
 - 在修改核心服务后，使用 CLI 工具验证功能：`npm run cli status`
 - 检查日志文件 `logs/claude-relay-*.log` 确认服务正常运行
-- 注意：当前项目缺少实际测试文件，建议补充单元测试和集成测试
 
 ### 开发工作流
 
@@ -618,6 +649,12 @@ npm run data:debug  # 调试Redis键
 npm run migrate:apikey-expiry  # API Key过期时间迁移
 npm run migrate:apikey-expiry:dry  # 干跑模式
 npm run migrate:fix-usage-stats  # 修复使用统计
+
+# 成本数据修复
+npm run fix:cost             # 修复成本total字段不一致问题
+npm run fix:cost:check       # 详细模式检查
+npm run fix:cost:dry-run     # 干跑模式（不实际修改）
+npm run fix:cost:auto        # 自动修复模式
 
 # 成本和定价
 npm run init:costs  # 初始化成本数据

@@ -358,6 +358,16 @@ class ClaudeConsoleRelayService {
         if (!autoProtectionDisabled) {
           await claudeConsoleAccountService.markAccountRateLimited(accountId)
         }
+      } else if (response.status === 402) {
+        logger.warn(
+          `💸 Insufficient quota error (402) detected for Claude Console account ${accountId}${autoProtectionDisabled ? ' (auto-protection disabled, skipping status change)' : ''}`
+        )
+        // 传入完整的错误详情到 webhook
+        const errorDetails =
+          typeof response.data === 'string' ? response.data : JSON.stringify(response.data)
+        if (!autoProtectionDisabled) {
+          await claudeConsoleAccountService.markAccountInsufficientQuota(accountId, errorDetails)
+        }
       } else if (response.status === 529) {
         logger.warn(
           `🚫 Overload error detected for Claude Console account ${accountId}${autoProtectionDisabled ? ' (auto-protection disabled, skipping status change)' : ''}`
@@ -855,6 +865,29 @@ class ClaudeConsoleRelayService {
                 if (!autoProtectionDisabled) {
                   await claudeConsoleAccountService.markAccountRateLimited(accountId)
                 }
+              } else if (response.status === 402) {
+                logger.warn(
+                  `💸 [Stream] Insufficient quota error (402) detected for Claude Console account ${accountId}${autoProtectionDisabled ? ' (auto-protection disabled, skipping status change)' : ''}`
+                )
+                // 传入完整的错误详情到 webhook
+                if (!autoProtectionDisabled) {
+                  await claudeConsoleAccountService.markAccountInsufficientQuota(
+                    accountId,
+                    errorDataForCheck
+                  )
+                }
+
+                // 🔄 如果响应头未发送，抛出异常以触发路由层重试
+                if (!responseStream.headersSent) {
+                  const error = new Error('Account insufficient quota (402)')
+                  error.code = 'ACCOUNT_INSUFFICIENT_QUOTA'
+                  error.statusCode = 402
+                  error.accountId = accountId
+                  logger.info(
+                    `🔄 [Stream] Response headers not sent yet, throwing exception to trigger retry for account ${accountId}`
+                  )
+                  return reject(error)
+                }
               } else if (response.status === 529) {
                 logger.warn(
                   `🚫 [Stream] Overload error detected for Claude Console account ${accountId}${autoProtectionDisabled ? ' (auto-protection disabled, skipping status change)' : ''}`
@@ -1254,6 +1287,12 @@ class ClaudeConsoleRelayService {
               claudeConsoleAccountService.checkQuotaUsage(accountId).catch((err) => {
                 logger.error('❌ Failed to check quota after 429 error:', err)
               })
+            } else if (error.response.status === 402) {
+              const errorDetails =
+                typeof error.response.data === 'string'
+                  ? error.response.data
+                  : JSON.stringify(error.response.data)
+              claudeConsoleAccountService.markAccountInsufficientQuota(accountId, errorDetails)
             } else if (error.response.status === 529) {
               claudeConsoleAccountService.markAccountOverloaded(accountId)
             }

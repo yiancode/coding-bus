@@ -946,6 +946,79 @@ async function handleMessagesRequest(req, res) {
         bodyLength: response.body ? response.body.length : 0
       })
 
+      // 🔄 402 余额不足错误自动重试处理
+      if (response.statusCode === 402 && !req._quotaRetryAttempted) {
+        req._quotaRetryAttempted = true
+        logger.warn(
+          `💸 Account ${accountId} returned 402 (insufficient quota), attempting fallback to other accounts...`
+        )
+
+        // 只有在响应头未发送时才能重试
+        if (!res.headersSent) {
+          try {
+            // 清理粘性会话映射（如果存在）
+            const sessionHash = sessionHelper.generateSessionHash(req.body)
+            await unifiedClaudeScheduler.clearSessionMapping(sessionHash)
+
+            logger.info(
+              '🔄 Session mapping cleared after 402 error, retrying handleMessagesRequest...'
+            )
+
+            // 递归重试整个请求处理（会选择新账户，已被标记为不可用的账户会被自动跳过）
+            return await handleMessagesRequest(req, res)
+          } catch (retryError) {
+            // 重试失败，检查是否所有账户都不可用
+            logger.error('❌ Retry failed after 402 error:', retryError.message)
+
+            // 如果响应头未发送，返回更友好的错误消息
+            if (!res.headersSent) {
+              return res.status(402).json({
+                type: 'error',
+                error: {
+                  type: 'insufficient_quota',
+                  code: 'ALL_ACCOUNTS_INSUFFICIENT_QUOTA',
+                  message:
+                    'All available accounts have insufficient quota. Please check account balances or try again later.'
+                }
+              })
+            }
+            // 响应头已发送，无法继续
+            if (!res.destroyed && !res.finished) {
+              res.end()
+            }
+            return undefined
+          }
+        } else {
+          // 响应头已发送，无法重试
+          logger.error('❌ Cannot retry 402 error - response headers already sent')
+          if (!res.destroyed && !res.finished) {
+            res.end()
+          }
+          return undefined
+        }
+      }
+
+      // 🚫 第二次 402 错误：已经重试过，直接返回错误
+      if (response.statusCode === 402 && req._quotaRetryAttempted) {
+        logger.error('❌ All accounts have insufficient quota (retry already attempted)')
+        if (!res.headersSent) {
+          return res.status(402).json({
+            type: 'error',
+            error: {
+              type: 'insufficient_quota',
+              code: 'ALL_ACCOUNTS_INSUFFICIENT_QUOTA',
+              message:
+                'All available accounts have insufficient quota. Please check account balances or try again later.'
+            }
+          })
+        } else {
+          if (!res.destroyed && !res.finished) {
+            res.end()
+          }
+          return undefined
+        }
+      }
+
       // 🔍 检查客户端连接是否仍然有效
       // 在长时间请求过程中，客户端可能已经断开连接（超时、用户取消等）
       if (res.destroyed || res.socket?.destroyed || res.writableEnded) {
@@ -1042,6 +1115,114 @@ async function handleMessagesRequest(req, res) {
     return undefined
   } catch (error) {
     let handledError = error
+
+    // 🔄 402 余额不足错误自动重试处理（流式请求）
+    if (handledError.code === 'ACCOUNT_INSUFFICIENT_QUOTA' && !req._quotaRetryAttempted) {
+      req._quotaRetryAttempted = true
+      logger.warn(
+        `💸 Account ${handledError.accountId} returned 402 (insufficient quota) during stream, attempting fallback to other accounts...`
+      )
+
+      // 只有在响应头未发送时才能重试
+      if (!res.headersSent) {
+        try {
+          // 清理粘性会话映射（如果存在）
+          const sessionHash = sessionHelper.generateSessionHash(req.body)
+          await unifiedClaudeScheduler.clearSessionMapping(sessionHash)
+
+          logger.info(
+            '🔄 Session mapping cleared after 402 stream error, retrying handleMessagesRequest...'
+          )
+
+          // 递归重试整个请求处理（会选择新账户，已被标记为不可用的账户会被自动跳过）
+          return await handleMessagesRequest(req, res)
+        } catch (retryError) {
+          // 重试失败，检查是否所有账户都不可用
+          logger.error('❌ Stream retry failed after 402 error:', retryError.message)
+
+          // 如果响应头未发送，返回SSE格式的错误
+          if (!res.headersSent) {
+            res.setHeader('Content-Type', 'text/event-stream')
+            res.setHeader('Cache-Control', 'no-cache')
+            const existingConnection = res.getHeader('Connection')
+            if (!existingConnection) {
+              res.setHeader('Connection', 'keep-alive')
+            }
+            res.write('event: error\n')
+            res.write(
+              `data: ${JSON.stringify({
+                type: 'error',
+                error: {
+                  type: 'insufficient_quota',
+                  code: 'ALL_ACCOUNTS_INSUFFICIENT_QUOTA',
+                  message:
+                    'All available accounts have insufficient quota. Please check account balances or try again later.'
+                },
+                timestamp: new Date().toISOString()
+              })}\n\n`
+            )
+            res.end()
+            return undefined
+          }
+          // 响应头已发送，无法继续
+          if (!res.destroyed && !res.finished) {
+            res.end()
+          }
+          return undefined
+        }
+      } else {
+        // 响应头已发送，无法重试，发送错误事件
+        logger.error('❌ Cannot retry 402 stream error - response headers already sent')
+        if (!res.destroyed && !res.finished) {
+          res.write('event: error\n')
+          res.write(
+            `data: ${JSON.stringify({
+              type: 'error',
+              error: {
+                type: 'insufficient_quota',
+                message: 'Account has insufficient quota'
+              },
+              timestamp: new Date().toISOString()
+            })}\n\n`
+          )
+          res.end()
+        }
+        return undefined
+      }
+    }
+
+    // 🚫 第二次 402 错误：已经重试过，返回错误
+    if (handledError.code === 'ACCOUNT_INSUFFICIENT_QUOTA' && req._quotaRetryAttempted) {
+      logger.error('❌ All accounts have insufficient quota (stream retry already attempted)')
+      if (!res.headersSent) {
+        res.setHeader('Content-Type', 'text/event-stream')
+        res.setHeader('Cache-Control', 'no-cache')
+        const existingConnection = res.getHeader('Connection')
+        if (!existingConnection) {
+          res.setHeader('Connection', 'keep-alive')
+        }
+        res.write('event: error\n')
+        res.write(
+          `data: ${JSON.stringify({
+            type: 'error',
+            error: {
+              type: 'insufficient_quota',
+              code: 'ALL_ACCOUNTS_INSUFFICIENT_QUOTA',
+              message:
+                'All available accounts have insufficient quota. Please check account balances or try again later.'
+            },
+            timestamp: new Date().toISOString()
+          })}\n\n`
+        )
+        res.end()
+        return undefined
+      } else {
+        if (!res.destroyed && !res.finished) {
+          res.end()
+        }
+        return undefined
+      }
+    }
 
     // 🔄 并发满额降级处理：捕获CONSOLE_ACCOUNT_CONCURRENCY_FULL错误
     if (
